@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>LV Maker PRO</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f9;
+    padding: 20px;
+}
+
+h1 {
+    color: #0f243e;
+}
+
+input, select, button {
+    padding: 8px;
+    margin: 5px;
+}
+
+button {
+    background: #0f243e;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #1b3a5a;
+}
+
+.card {
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 20px;
+}
+
+table {
+    width: 100%;
+    margin-top: 20px;
+    border-collapse: collapse;
+}
+
+th {
+    background: #0f243e;
+    color: white;
+    padding: 10px;
+}
+
+td {
+    padding: 8px;
+    border-bottom: 1px solid #ccc;
+}
+
+.pago {
+    background: #c6efce;
+}
+
+.nao {
+    background: #ffc7ce;
+}
+
+.dashboard {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.box {
+    background: #f4f6f9;
+    padding: 15px;
+    border-radius: 10px;
+    min-width: 180px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="loginBox" class="card">
+    <h3>🔐 Login</h3>
+    <input id="email" placeholder="Email">
+    <input id="senha" type="password" placeholder="Senha">
+    <button onclick="login()">Entrar / Criar Conta</button>
+</div>
+
+<div id="sistema" style="display:none;">
+
+<h1>📦 LV Maker PRO</h1>
+
+<div class="card">
+    <h3>Novo Pedido</h3>
+
+    <input id="data" type="date">
+    <input id="cliente" placeholder="Cliente">
+    <input id="produto" placeholder="Produto">
+    <input id="qtd" type="number" placeholder="Qtd">
+    <input id="valor" type="number" placeholder="Valor Unitário">
+    <input id="custo" type="number" placeholder="Custo Unitário">
+
+    <select id="pagamento">
+        <option>Pix</option>
+        <option>Dinheiro</option>
+        <option>Cartão</option>
+    </select>
+    <select id="Status">
+        <option value="Aguardando">Aguardando</option>
+        <option value="Imprimindo">Imprimindo</option>
+        <option value="Pronto">Pronto</option>
+        <option value="Entregue">Entregue</option>
+    </select>
+
+    <button onclick="salvar()">Salvar Pedido</button>
+    <button onclick="logout()">Sair</button>
+</div>
+
+<div class="card">
+    <h3>🔎 Buscar Cliente</h3>
+    <input id="buscaCliente" placeholder="Digite o nome..." oninput="render()">
+</div>
+
+<div class="card">
+    <h3>Pedidos</h3>
+    
+
+<label>Filtrar por mês:</label>
+<select id="filtroMes" onchange="render()">
+    <option value="">Todos</option>
+    <option value="01">Janeiro</option>
+    <option value="02">Fevereiro</option>
+    <option value="03">Março</option>
+    <option value="04">Abril</option>
+    <option value="05">Maio</option>
+    <option value="06">Junho</option>
+    <option value="07">Julho</option>
+    <option value="08">Agosto</option>
+    <option value="09">Setembro</option>
+    <option value="10">Outubro</option>
+    <option value="11">Novembro</option>
+    <option value="12">Dezembro</option>
+</select>
+    
+    <button onclick="gerarReciboSelecionado()">
+    Gerar Recibo Selecionado
+</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>✔</th>
+                <th>Data</th>
+                <th>Cliente</th>
+                <th>Produto</th>
+                <th>Qtd</th>
+                <th>Valor Unit.</th>
+                <th>Total</th>
+                <th>Lucro</th>
+                <th>Pago?</th>
+                <th>Ação</th>
+            </tr>
+        </thead>
+        <tbody id="tabela"></tbody>
+    </table>
+    <h3>Total do mês: R$ <span id="totalMes">0</span></h3>
+
+</div>
+
+<div class="card">
+    <h3>📊 Dashboard</h3>
+
+    <div class="dashboard">
+        <div class="box">
+            <strong>Total Vendas</strong>
+            <p>R$ <span id="totalVendas">0.00</span></p>
+        </div>
+
+        <div class="box">
+            <strong>Total Lucro</strong>
+            <p>R$ <span id="totalLucro">0.00</span></p>
+        </div>
+
+        <div class="box">
+            <strong>Pendentes</strong>
+            <p>R$ <span id="totalPendente">0.00</span></p>
+        </div>
+
+        <div class="box">
+            <strong>Pedidos</strong>
+            <p><span id="qtdPedidos">0</span></p>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h3>🧾 Recibo</h3>
+    <div id="recibo"></div>
+    <button onclick="enviarWhatsApp()">Enviar no WhatsApp</button>
+</div>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyASqz8XoAhyD6w-klOr4HXlj_4URkQlBU8",
+  authDomain: "lv-maker.firebaseapp.com",
+  projectId: "lv-maker",
+  storageBucket: "lv-maker.firebasestorage.app",
+  messagingSenderId: "216355482221",
+  appId: "1:216355482221:web:5c3806b990538fa7dc6d64"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+let pedidos = [];
+
+async function login() {
+    const email = document.getElementById("email").value;
+    const senha = document.getElementById("senha").value;
+
+    if (!email || !senha) {
+        alert("Preencha email e senha");
+        return;
+    }
+
+    try {
+        await auth.signInWithEmailAndPassword(email, senha);
+    } catch (erro) {
+        try {
+            await auth.createUserWithEmailAndPassword(email, senha);
+        } catch (e) {
+            alert("Erro: " + e.message);
+        }
+    }
+}
+
+function logout() {
+    auth.signOut();
+}
+
+auth.onAuthStateChanged(user => {
+    if (user) {
+        document.getElementById("loginBox").style.display = "none";
+        document.getElementById("sistema").style.display = "block";
+        carregarPedidos();
+    } else {
+        document.getElementById("loginBox").style.display = "block";
+        document.getElementById("sistema").style.display = "none";
+    }
+});
+
+async function salvar() {
+    const user = auth.currentUser;
+
+    const data = document.getElementById("data").value || new Date().toISOString().slice(0, 10);
+    const cliente = document.getElementById("cliente").value.trim();
+    const produto = document.getElementById("produto").value.trim();
+    const qtd = parseFloat(document.getElementById("qtd").value);
+    const valor = parseFloat(document.getElementById("valor").value);
+    const custo = parseFloat(document.getElementById("custo").value);
+    const pagamento = document.getElementById("pagamento").value;
+    const status = document.getElementById("status").value;
+    const pedidoId = Date.now();
+
+
+
+    if (!cliente || !produto || !qtd || !valor || !custo) {
+        alert("Preencha todos os campos");
+        return;
+    }
+
+    const total = qtd * valor;
+    const lucro = total - (qtd * custo);
+
+    await db.collection("pedidos").add({
+        usuario: user.uid,
+        pedidoId,
+        data,
+        cliente,
+        produto,
+        qtd,
+        valor,
+        custo,
+        total,
+        lucro,
+        pagamento,
+        status,
+        pago: "Não",
+        criadoEm: new Date()
+    });
+
+    limparCampos();
+    carregarPedidos();
+}
+
+function limparCampos() {
+    document.getElementById("data").value = "";
+    document.getElementById("cliente").value = "";
+    document.getElementById("produto").value = "";
+    document.getElementById("qtd").value = "";
+    document.getElementById("valor").value = "";
+    document.getElementById("custo").value = "";
+}
+
+async function carregarPedidos() {
+    const user = auth.currentUser;
+    pedidos = [];
+
+    const snapshot = await db.collection("pedidos")
+        .where("usuario", "==", user.uid)
+        .get();
+
+    snapshot.forEach(doc => {
+        const pedido = doc.data();
+        pedido.docId = doc.id;
+        pedidos.push(pedido);
+    });
+
+    render();
+}
+
+async function marcarPago(docId) {
+    await db.collection("pedidos").doc(docId).update({
+        pago: "Sim"
+    });
+
+    carregarPedidos();
+}
+async function alterarStatus(id, novoStatus) {
+
+    try {
+
+        await db.collection("pedidos").doc(id).update({
+            status: novoStatus
+        });
+
+        console.log("Status atualizado!");
+
+        carregarPedidos();
+
+    } catch (erro) {
+
+        console.error("Erro ao atualizar:", erro);
+
+    }
+}
+
+
+async function excluir(docId) {
+    const confirmar = confirm("Tem certeza que deseja excluir esse pedido?");
+
+    if (!confirmar) return;
+
+    await db.collection("pedidos").doc(docId).delete();
+    carregarPedidos();
+}
+
+function gerarRecibo(p) {
+    document.getElementById("recibo").innerHTML = `
+        <h4>LV Maker</h4>
+        <b>Data:</b> ${p.data.includes("-") ? formatarData(p.data) : p.data}<br>
+        <b>Cliente:</b> ${p.cliente}<br>
+        <b>Produto:</b> ${p.produto}<br>
+        <b>Quantidade:</b> ${p.qtd}<br>
+        <b>Total:</b> R$ ${Number(p.total).toFixed(2)}<br>
+        <b>Pagamento:</b> ${p.pagamento}<br>
+        <b>Pago:</b> ${p.pago}
+    `;
+}
+
+function render() {
+    const mesSelecionado = document.getElementById("filtroMes").value;
+    let totalMes = 0;
+    const tabela = document.getElementById("tabela");
+    tabela.innerHTML = "";
+
+    const busca = document.getElementById("buscaCliente").value.toLowerCase();
+
+    let totalVendas = 0;
+    let totalLucro = 0;
+    let totalPendente = 0;
+    let qtdPedidos = 0;
+
+    
+   pedidos.forEach(p => {
+
+    // 🔍 filtro busca
+    if (busca && !p.cliente.toLowerCase().includes(busca)) return;
+
+    // 📅 filtro mês
+    if (mesSelecionado) {
+
+        let mesPedido = "";
+
+        if (p.data.includes("-")) {
+            mesPedido = p.data.split("-")[1];
+        }
+
+        if (p.data.includes("/")) {
+            mesPedido = p.data.split("/")[1];
+        }
+
+        if (mesPedido !== mesSelecionado) return;
+    }
+
+    const tr = document.createElement("tr");
+        tr.className = p.pago === "Sim" ? "pago" : "nao";
+
+        tr.innerHTML = `
+            
+            <td><input type="checkbox" class="selecionado" data-id="${p.docId}"></td>
+            <td>${formatarData(p.data)}</td>
+            <td>${p.cliente || "-"}</td>
+            <td>${p.produto || "-"}</td>
+            <td>${p.qtd || 0}</td>
+            <td>R$ ${Number(p.valor || 0).toFixed(2)}</td>
+            <td>R$ ${Number(p.total || 0).toFixed(2)}</td>
+            <td>R$ ${Number(p.lucro || 0).toFixed(2)}</td>
+            <td>${p.pago || "Não"}</td>
+            <td>
+                
+                <button onclick='gerarRecibo(${JSON.stringify(p)})'>Recibo</button>
+                <button onclick="marcarPago('${p.docId}')">Pago</button>
+                <button onclick="excluir('${p.docId}')">Excluir</button>
+
+                <br><br>
+                <select onchange="alterarStatus('${p.docId}', this.value)">
+                    <option value="Aguardando" ${p.status === "Aguardando" ? "selected" : ""}>Aguardando</option>
+                    <option value="Imprimindo" ${p.status === "Imprimindo" ? "selected" : ""}>Imprimindo</option>
+                    <option value="Pronto" ${p.status === "Pronto" ? "selected" : ""}>Pronto</option>
+                    <option value="Entregue" ${p.status === "Entregue" ? "selected" : ""}>Entregue</option>
+                </select>
+
+
+                
+                
+               
+                
+            </td>
+        `;
+
+        tabela.appendChild(tr);
+
+        totalVendas += Number(p.total || 0);
+        totalLucro += Number(p.lucro || 0);
+        qtdPedidos++;
+
+        if (p.pago !== "Sim") {
+            totalPendente += Number(p.total || 0);
+        }
+    });
+
+    document.getElementById("totalVendas").innerText = totalVendas.toFixed(2);
+    document.getElementById("totalLucro").innerText = totalLucro.toFixed(2);
+    document.getElementById("totalPendente").innerText = totalPendente.toFixed(2);
+    document.getElementById("qtdPedidos").innerText = qtdPedidos;
+}
+
+function gerarReciboSelecionado() {
+    const selecionados = document.querySelectorAll(".selecionado:checked");
+
+    if (selecionados.length === 0) {
+        alert("Selecione pelo menos um pedido.");
+        return;
+    }
+
+    let pedidosSelecionados = [];
+    let totalGeral = 0;
+    let cliente = "";
+
+    selecionados.forEach(check => {
+        const id = check.getAttribute("data-id");
+        const pedido = pedidos.find(p => p.docId === id);
+
+        if (pedido) {
+            pedidosSelecionados.push(pedido);
+            totalGeral += Number(pedido.total || 0);
+            cliente = pedido.cliente;
+        }
+    });
+
+    let html = `
+        <h4>LV Maker</h4>
+        <b>Cliente:</b> ${cliente}<br><br>
+    `;
+    pedidosSelecionados.forEach(p => {
+        html += `
+        Data: ${p.data.includes("-") ? formatarData(p.data) : p.data}<br>
+        Produto: ${p.produto}<br>
+        Quantidade: ${p.qtd}<br>
+        Total: R$ ${Number(p.total || 0).toFixed(2)}<br>
+        <hr>
+    `;
+});
+
+    html += `<b>Total Geral:</b> R$ ${totalGeral.toFixed(2)}`;
+
+    document.getElementById("recibo").innerHTML = html;
+}
+function enviarWhatsApp() {
+
+    const reciboHTML = document.getElementById("recibo").innerText;
+
+    if (!reciboHTML) {
+        alert("Gere um recibo primeiro!");
+        return;
+    }
+
+    const mensagem = encodeURIComponent(
+`🧾 *LV Maker*
+
+${reciboHTML}
+
+Obrigado pela preferência 🙌`
+    );
+
+    const url = `https://wa.me/?text=${mensagem}`;
+
+    window.open(url, "_blank");
+}
+
+function formatarData(data) {
+    if (!data) return "";
+
+    // já está no formato brasileiro
+    if (data.includes("/")) return data;
+
+    // formato padrão ISO (2026-05-10)
+    if (data.includes("-")) {
+        const partes = data.split("-");
+        return `${partes[2]}/${partes[1]}/${partes[0]}`;
+    }
+
+    return data;
+}
+</script>
+
+</body>
+</html>
