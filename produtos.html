@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LV Maker PRO - Produtos</title>
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f243e">
+</head>
+
+<body>
+
+<div id="sistema" style="display:none;">
+
+<h1>📦 LV Maker PRO</h1>
+
+<nav>
+    <a href="index.html">📋 Pedidos</a>
+    <a href="orcamentos.html">Orçamentos</a>
+    <a href="financeiro.html">📊 Financeiro</a>
+    <a href="produtos.html" class="ativo">🛍️ Produtos</a>
+    <a href="https://lv-maker.web.app/catalogo.html" target="_blank">🛒 Catálogo</a>
+</nav>
+
+<!-- BANNER -->
+<div class="card">
+    <h3>🖼️ Banner Promocional</h3>
+    <div style="margin:8px 5px;">
+        <label style="font-size:13px;color:#555;">Link da imagem do banner (Direct link ImgBB)</label><br>
+        <input id="bannerURL" placeholder="https://i.ibb.co/..." style="width:100%;max-width:500px;">
+    </div>
+    <div style="margin:8px 5px;">
+        <label style="font-size:13px;color:#555;">Texto sobre o banner</label><br>
+        <input id="bannerTexto" placeholder="Ex: 🔥 10% OFF em todos os produtos!" style="width:100%;max-width:500px;">
+    </div>
+    <div style="margin:8px 5px;">
+        <label style="font-size:13px;color:#555;">Banner ativo?</label>
+        <select id="bannerAtivo">
+            <option value="true">Sim — mostrar no catálogo</option>
+            <option value="false">Não — ocultar</option>
+        </select>
+    </div>
+    <button onclick="salvarBanner()">Salvar Banner</button>
+</div>
+
+<!-- CATEGORIAS -->
+<div class="card">
+    <h3>🏷️ Categorias</h3>
+    <input id="novaCategoria" placeholder="Nome da categoria">
+    <button onclick="adicionarCategoria()">Adicionar</button>
+    <div id="listaCategorias" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;"></div>
+</div>
+
+<!-- PRODUTOS -->
+<div class="card">
+    <h3>Novo Produto</h3>
+    <input id="nomeProduto" placeholder="Nome do produto">
+    <textarea id="descricao" placeholder="Descrição do produto..." 
+    style="width:100%;max-width:500px;min-height:80px;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:14px;font-family:Arial,sans-serif;resize:vertical;margin:5px;"></textarea>
+    <input id="preco" type="number" placeholder="Preço (R$)">
+
+    <div style="margin:8px 5px;">
+        <label style="font-size:13px;color:#555;">Categoria</label><br>
+        <select id="categoriaProduto" style="min-width:200px;">
+            <option value="">Sem categoria</option>
+        </select>
+    </div>
+
+    <div style="margin:8px 5px;">
+        <label style="font-size:13px;color:#555;">Disponibilidade</label><br>
+        <select id="disponibilidade" style="min-width:200px;">
+            <option value="sob_demanda">Sob demanda</option>
+            <option value="pronta_entrega">Pronta entrega</option>
+        </select>
+    </div>
+
+    <div style="margin:8px 5px;">
+        <label style="font-size:13px;color:#555;">Quantidade pronta em estoque</label><br>
+        <input id="estoquePronto" type="number" min="0" placeholder="Ex: 3" style="width:100%;max-width:200px;">
+    </div>
+
+    <div style="margin:8px 5px;">
+        <label style="font-size:13px;color:#555;">📷 Foto principal (Direct link ImgBB)</label><br>
+        <input id="fotoURL" placeholder="https://i.ibb.co/..." style="width:100%;max-width:500px;" oninput="previewFoto('fotoURL','preview1')">
+        <img id="preview1" src="" style="display:none;max-width:150px;margin-top:6px;border-radius:8px;">
+    </div>
+
+    <div style="margin:8px 5px;">
+        <label style="font-size:13px;color:#555;">📷 Foto extra 2 (opcional)</label><br>
+        <input id="fotoURL2" placeholder="https://i.ibb.co/..." style="width:100%;max-width:500px;" oninput="previewFoto('fotoURL2','preview2')">
+        <img id="preview2" src="" style="display:none;max-width:150px;margin-top:6px;border-radius:8px;">
+    </div>
+
+    <div style="margin:8px 5px;">
+        <label style="font-size:13px;color:#555;">📷 Foto extra 3 (opcional)</label><br>
+        <input id="fotoURL3" placeholder="https://i.ibb.co/..." style="width:100%;max-width:500px;" oninput="previewFoto('fotoURL3','preview3')">
+        <img id="preview3" src="" style="display:none;max-width:150px;margin-top:6px;border-radius:8px;">
+        <p style="font-size:12px;color:#888;margin-top:4px;">
+            Acesse <a href="https://imgbb.com" target="_blank">imgbb.com</a>, faça upload, clique na imagem e copie o <b>Direct link</b>.
+        </p>
+    </div>
+
+    <button onclick="salvarProduto()">Salvar Produto</button>
+    <button onclick="cancelarEdicao()" id="btnCancelar" style="display:none;background:#888;">Cancelar</button>
+</div>
+
+<div class="card">
+    <h3>🛍️ Produtos Cadastrados</h3>
+    <div id="alertaEstoque" style="margin:8px 0;"></div>
+    <div id="listaProdutos" style="display:flex;flex-wrap:wrap;gap:15px;margin-top:10px;"></div>
+</div>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+    apiKey: "AIzaSyASqz8XoAhyD6w-klOr4HXlj_4URkQlBU8",
+    authDomain: "lv-maker.firebaseapp.com",
+    projectId: "lv-maker",
+    storageBucket: "lv-maker.firebasestorage.app",
+    messagingSenderId: "216355482221",
+    appId: "1:216355482221:web:5c3806b990538fa7dc6d64"
+};
+
+firebase.initializeApp(firebaseConfig);
+firebase.appCheck().activate(
+    new firebase.appCheck.ReCaptchaEnterpriseProvider("6LcX5IItAAAAAMMojs5eGD6mDUWpnFozv-P_xmC_"),
+    true
+);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+let produtos = [];
+let categorias = [];
+let produtoEditando = null;
+
+function escaparHTML(valor) {
+    return String(valor ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+auth.onAuthStateChanged(user => {
+    if (user) {
+        document.getElementById("sistema").style.display = "block";
+        carregarBanner();
+        carregarCategorias();
+        carregarProdutos();
+    } else {
+        window.location.href = "index.html";
+    }
+});
+
+// ─── BANNER ─────────────────────────────────────────
+async function carregarBanner() {
+    try {
+        const doc = await db.collection("configuracoes").doc("banner").get();
+        if (doc.exists) {
+            const b = doc.data();
+            document.getElementById("bannerURL").value = b.imagemURL || "";
+            document.getElementById("bannerTexto").value = b.texto || "";
+            document.getElementById("bannerAtivo").value = b.ativo ? "true" : "false";
+        }
+    } catch(e) {}
+}
+
+async function salvarBanner() {
+    const imagemURL = document.getElementById("bannerURL").value.trim();
+    const texto = document.getElementById("bannerTexto").value.trim();
+    const ativo = document.getElementById("bannerAtivo").value === "true";
+    await db.collection("configuracoes").doc("banner").set({ imagemURL, texto, ativo });
+    alert("Banner salvo!");
+}
+
+// ─── CATEGORIAS ─────────────────────────────────────
+async function carregarCategorias() {
+    categorias = [];
+    const snapshot = await db.collection("categorias").orderBy("nome").get();
+    snapshot.forEach(doc => {
+        categorias.push({ docId: doc.id, ...doc.data() });
+    });
+    renderCategorias();
+    atualizarSelectCategorias();
+}
+
+function renderCategorias() {
+    const lista = document.getElementById("listaCategorias");
+    lista.innerHTML = "";
+    if (categorias.length === 0) {
+        lista.innerHTML = "<p style='color:#999;font-size:13px;'>Nenhuma categoria ainda.</p>";
+        return;
+    }
+    categorias.forEach(c => {
+        const span = document.createElement("span");
+        span.style.cssText = "background:#0f243e;color:white;padding:5px 12px;border-radius:20px;font-size:13px;display:flex;align-items:center;gap:6px;";
+        span.innerHTML = `${escaparHTML(c.nome)} <button onclick="excluirCategoria('${c.docId}')" style="background:none;border:none;color:white;cursor:pointer;font-size:14px;padding:0;">✕</button>`;
+        lista.appendChild(span);
+    });
+}
+
+function atualizarSelectCategorias() {
+    const select = document.getElementById("categoriaProduto");
+    const valorAtual = select.value;
+    select.innerHTML = `<option value="">Sem categoria</option>`;
+    categorias.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c.nome;
+        opt.innerText = c.nome;
+        if (c.nome === valorAtual) opt.selected = true;
+        select.appendChild(opt);
+    });
+}
+
+async function adicionarCategoria() {
+    const nome = document.getElementById("novaCategoria").value.trim();
+    if (!nome) return;
+    if (categorias.find(c => c.nome.toLowerCase() === nome.toLowerCase())) {
+        alert("Essa categoria já existe.");
+        return;
+    }
+    await db.collection("categorias").add({ nome });
+    document.getElementById("novaCategoria").value = "";
+    carregarCategorias();
+}
+
+async function excluirCategoria(docId) {
+    if (!confirm("Excluir essa categoria?")) return;
+    await db.collection("categorias").doc(docId).delete();
+    carregarCategorias();
+}
+
+// ─── PRODUTOS ───────────────────────────────────────
+function previewFoto(inputId, imgId) {
+    const url = document.getElementById(inputId).value.trim();
+    const img = document.getElementById(imgId);
+    if (url) { img.src = url; img.style.display = "block"; }
+    else { img.style.display = "none"; }
+}
+
+async function salvarProduto() {
+    const nome = document.getElementById("nomeProduto").value.trim();
+    const descricao = document.getElementById("descricao").value.trim();
+    const preco = parseFloat(document.getElementById("preco").value);
+    const fotoURL = document.getElementById("fotoURL").value.trim();
+    const fotoURL2 = document.getElementById("fotoURL2").value.trim();
+    const fotoURL3 = document.getElementById("fotoURL3").value.trim();
+    const categoria = document.getElementById("categoriaProduto").value;
+    const disponibilidade = document.getElementById("disponibilidade").value;
+    const estoquePronto = Math.max(0, parseInt(document.getElementById("estoquePronto").value || "0", 10));
+
+    if (!nome || !preco) {
+        alert("Preencha pelo menos nome e preço.");
+        return;
+    }
+
+    // Monta array de fotos ignorando vazias
+    const fotos = [fotoURL, fotoURL2, fotoURL3].filter(f => f !== "");
+
+    const dadosProduto = { nome, descricao, preco, fotoURL, fotos, categoria, disponibilidade, estoquePronto, ativo: true };
+
+    if (produtoEditando) {
+        await db.collection("produtos").doc(produtoEditando.docId).update(dadosProduto);
+        produtoEditando = null;
+    } else {
+        await db.collection("produtos").add({ ...dadosProduto, criadoEm: new Date() });
+    }
+
+    limparFormProduto();
+    carregarProdutos();
+}
+
+function limparFormProduto() {
+    ["nomeProduto","descricao","preco","fotoURL","fotoURL2","fotoURL3","estoquePronto"].forEach(id => {
+        document.getElementById(id).value = "";
+    });
+    ["preview1","preview2","preview3"].forEach(id => {
+        document.getElementById(id).style.display = "none";
+    });
+    document.getElementById("categoriaProduto").value = "";
+    document.getElementById("disponibilidade").value = "sob_demanda";
+    document.getElementById("btnCancelar").style.display = "none";
+    produtoEditando = null;
+}
+
+function cancelarEdicao() { limparFormProduto(); }
+
+async function carregarProdutos() {
+    produtos = [];
+    const snapshot = await db.collection("produtos").orderBy("criadoEm", "desc").get();
+    snapshot.forEach(doc => {
+        const p = doc.data();
+        p.docId = doc.id;
+        produtos.push(p);
+    });
+    renderProdutos();
+}
+
+function renderProdutos() {
+    const lista = document.getElementById("listaProdutos");
+    const alertaEstoque = document.getElementById("alertaEstoque");
+    lista.innerHTML = "";
+    alertaEstoque.innerHTML = "";
+
+    if (produtos.length === 0) {
+        lista.innerHTML = "<p>Nenhum produto cadastrado ainda.</p>";
+        return;
+    }
+
+    const produtosBaixoEstoque = produtos.filter(p =>
+        p.disponibilidade === "pronta_entrega" && Number(p.estoquePronto || 0) <= 2
+    );
+
+    if (produtosBaixoEstoque.length > 0) {
+        alertaEstoque.innerHTML = `
+            <div style="background:#fff3cd;border-left:4px solid #b36b00;padding:10px;border-radius:6px;color:#5f4300;">
+                <strong>Atenção ao estoque:</strong><br>
+                ${produtosBaixoEstoque.map(p => {
+                    const estoque = Number(p.estoquePronto || 0);
+                    return `${escaparHTML(p.nome)}: ${estoque === 0 ? "esgotado" : estoque + " un."}`;
+                }).join("<br>")}
+            </div>
+        `;
+    }
+
+    produtos.forEach(p => {
+        const fotos = p.fotos && p.fotos.length > 0 ? p.fotos : (p.fotoURL ? [p.fotoURL] : []);
+        const disponibilidade = p.disponibilidade || "sob_demanda";
+        const estoquePronto = Number(p.estoquePronto || 0);
+        const textoDisponibilidade = disponibilidade === "pronta_entrega"
+            ? `Pronta entrega${estoquePronto > 0 ? `: ${estoquePronto} un.` : ": esgotado"}`
+            : "Sob demanda";
+        const corDisponibilidade = disponibilidade === "pronta_entrega"
+            ? (estoquePronto > 0 ? "green" : "#b00020")
+            : "#b36b00";
+        const div = document.createElement("div");
+        div.style.cssText = "background:#f4f6f9;border-radius:10px;padding:12px;width:200px;";
+        div.innerHTML = `
+            ${fotos.length > 0
+                ? `<img src="${escaparHTML(fotos[0])}" alt="${escaparHTML(p.nome)}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;margin-bottom:8px;">`
+                : `<div style="width:100%;height:120px;background:#ddd;border-radius:8px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;color:#999;font-size:12px;">Sem foto</div>`}
+            <strong>${escaparHTML(p.nome)}</strong><br>
+            ${p.categoria ? `<span style="font-size:11px;background:#4fc3f7;color:white;border-radius:10px;padding:2px 8px;">${escaparHTML(p.categoria)}</span><br>` : ""}
+            <small style="color:#555;">${escaparHTML((p.descricao || "").substring(0, 60))}${p.descricao && p.descricao.length > 60 ? "..." : ""}</small><br>
+            <span style="color:#0f243e;font-weight:bold;">R$ ${Number(p.preco).toFixed(2)}</span><br>
+            <small style="color:${corDisponibilidade};font-weight:bold;">${escaparHTML(textoDisponibilidade)}</small><br>
+            <small style="color:#888;">${fotos.length} foto(s)</small><br>
+            <span style="font-size:12px;color:${p.ativo ? 'green' : 'red'};">${p.ativo ? "● Ativo" : "● Inativo"}</span>
+            <div style="margin-top:8px;display:flex;gap:5px;">
+                <button onclick="editarProduto('${p.docId}')" style="flex:1;font-size:12px;padding:5px;">Editar</button>
+                <button onclick="toggleAtivo('${p.docId}', ${p.ativo})" style="flex:1;font-size:12px;padding:5px;background:${p.ativo ? '#888' : '#0f243e'};">${p.ativo ? "Pausar" : "Ativar"}</button>
+                <button onclick="excluirProduto('${p.docId}')" style="flex:1;font-size:12px;padding:5px;background:#c0392b;">Excluir</button>
+            </div>
+        `;
+        lista.appendChild(div);
+    });
+}
+
+function editarProduto(docId) {
+    const p = produtos.find(x => x.docId === docId);
+    if (!p) return;
+    produtoEditando = p;
+
+    document.getElementById("nomeProduto").value = p.nome || "";
+    document.getElementById("descricao").value = p.descricao || "";
+    document.getElementById("preco").value = p.preco || "";
+    document.getElementById("categoriaProduto").value = p.categoria || "";
+    document.getElementById("disponibilidade").value = p.disponibilidade || "sob_demanda";
+    document.getElementById("estoquePronto").value = p.estoquePronto || "";
+    document.getElementById("btnCancelar").style.display = "inline-block";
+
+    const fotos = p.fotos && p.fotos.length > 0 ? p.fotos : (p.fotoURL ? [p.fotoURL] : []);
+    ["fotoURL","fotoURL2","fotoURL3"].forEach((id, i) => {
+        const val = fotos[i] || "";
+        document.getElementById(id).value = val;
+        const preview = document.getElementById(`preview${i+1}`);
+        if (val) { preview.src = val; preview.style.display = "block"; }
+        else { preview.style.display = "none"; }
+    });
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function toggleAtivo(docId, estadoAtual) {
+    await db.collection("produtos").doc(docId).update({ ativo: !estadoAtual });
+    carregarProdutos();
+}
+
+async function excluirProduto(docId) {
+    if (!confirm("Excluir esse produto?")) return;
+    await db.collection("produtos").doc(docId).delete();
+    carregarProdutos();
+}
+</script>
+
+</body>
+</html>

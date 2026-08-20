@@ -1,436 +1,812 @@
+
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LV Maker PRO</title>
-
-<style>
-body {
-    font-family: Arial, sans-serif;
-    background: #f4f6f9;
-    padding: 20px;
-}
-
-h1 {
-    color: #0f243e;
-}
-
-input, select, button {
-    padding: 8px;
-    margin: 5px;
-}
-
-button {
-    background: #0f243e;
-    color: white;
-    border: none;
-    cursor: pointer;
-}
-
-button:hover {
-    background: #1b3a5a;
-}
-
-.card {
-    background: white;
-    padding: 15px;
-    border-radius: 10px;
-    margin-top: 20px;
-}
-
-table {
-    width: 100%;
-    margin-top: 20px;
-    border-collapse: collapse;
-}
-
-th {
-    background: #0f243e;
-    color: white;
-    padding: 10px;
-}
-
-td {
-    padding: 8px;
-    border-bottom: 1px solid #ccc;
-}
-
-.pago {
-    background: #c6efce;
-}
-
-.nao {
-    background: #ffc7ce;
-}
-
-.dashboard {
-    display: flex;
-    gap: 20px;
-    flex-wrap: wrap;
-}
-
-.box {
-    background: #f4f6f9;
-    padding: 15px;
-    border-radius: 10px;
-    min-width: 180px;
-}
-</style>
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f243e">
 </head>
-
+ 
 <body>
-
+ 
 <div id="loginBox" class="card">
     <h3>🔐 Login</h3>
     <input id="email" placeholder="Email">
     <input id="senha" type="password" placeholder="Senha">
-    <button onclick="login()">Entrar / Criar Conta</button>
+    <button onclick="login()">Entrar</button>
 </div>
-
+ 
 <div id="sistema" style="display:none;">
-
+ 
 <h1>📦 LV Maker PRO</h1>
-
+ 
+<nav>
+    <a href="index.html" class="ativo">📋 Pedidos</a>
+    <a href="index.html?aba=producao">⚙️ Produção & Entregas</a>
+    <a href="orcamentos.html">Orçamentos</a>
+    <a href="financeiro.html">📊 Financeiro</a>
+    <a href="produtos.html">🛍️ Produtos</a>
+</nav>
+ 
+<div id="visaoOperacao">
 <div class="card">
     <h3>Novo Pedido</h3>
-
+    <label>Data do Pedido</label>
     <input id="data" type="date">
-    <input id="cliente" placeholder="Cliente">
+    <label>Data de Pagamento</label>
+    <input id="dataPagamento" type="date">
+    <input id="cliente" placeholder="Cliente" oninput="buscarTelefoneCliente()">
+    <input id="telefone" placeholder="Telefone com DDD (opcional)">
     <input id="produto" placeholder="Produto">
     <input id="qtd" type="number" placeholder="Qtd">
     <input id="valor" type="number" placeholder="Valor Unitário">
     <input id="custo" type="number" placeholder="Custo Unitário">
-
     <select id="pagamento">
         <option>Pix</option>
         <option>Dinheiro</option>
         <option>Cartão</option>
     </select>
-    <select id="Status">
-        <option value="Aguardando">Aguardando</option>
-        <option value="Imprimindo">Imprimindo</option>
-        <option value="Pronto">Pronto</option>
-        <option value="Entregue">Entregue</option>
+    <select id="pago">
+        <option value="Não">Não Pago</option>
+        <option value="Sim">Pago</option>
     </select>
-
     <button onclick="salvar()">Salvar Pedido</button>
     <button onclick="logout()">Sair</button>
 </div>
-
-<div class="card">
-    <h3>🔎 Buscar Cliente</h3>
-    <input id="buscaCliente" placeholder="Digite o nome..." oninput="render()">
+ 
+<div class="card" id="cardPedidosCatalogo" style="display:none;">
+    <h3>Pedidos Recebidos do Catálogo</h3>
+    <div id="listaPedidosCatalogo"></div>
 </div>
 
 <div class="card">
-    <h3>Pedidos</h3>
-    
-
-<label>Filtrar por mês:</label>
-<select id="filtroMes" onchange="render()">
-    <option value="">Todos</option>
-    <option value="01">Janeiro</option>
-    <option value="02">Fevereiro</option>
-    <option value="03">Março</option>
-    <option value="04">Abril</option>
-    <option value="05">Maio</option>
-    <option value="06">Junho</option>
-    <option value="07">Julho</option>
-    <option value="08">Agosto</option>
-    <option value="09">Setembro</option>
-    <option value="10">Outubro</option>
-    <option value="11">Novembro</option>
-    <option value="12">Dezembro</option>
-</select>
-    
-    <button onclick="gerarReciboSelecionado()">
-    Gerar Recibo Selecionado
-</button>
-
+    <h3>Produção e Entregas</h3>
+    <input id="buscaClienteOperacao" placeholder="Buscar cliente..." oninput="render()">
+    <label>Filtrar por mês:</label>
+    <select id="filtroMesOperacao" onchange="render()">
+        <option value="">Todos</option>
+        <option value="01">Janeiro</option>
+        <option value="02">Fevereiro</option>
+        <option value="03">Março</option>
+        <option value="04">Abril</option>
+        <option value="05">Maio</option>
+        <option value="06">Junho</option>
+        <option value="07">Julho</option>
+        <option value="08">Agosto</option>
+        <option value="09">Setembro</option>
+        <option value="10">Outubro</option>
+        <option value="11">Novembro</option>
+        <option value="12">Dezembro</option>
+    </select>
+    <button onclick="gerarReciboSelecionado()">Gerar Recibo Selecionado</button>
+    <button onclick="enviarCobrancaSelecionados()">📌 Enviar Cobrança Selecionados</button>
+    <button onclick="exportarCSV()">Exportar CSV</button>
+ 
     <table>
         <thead>
             <tr>
                 <th>✔</th>
-                <th>Data</th>
+                <th>Data Pedido</th>
+                <th>Data Pagamento</th>
                 <th>Cliente</th>
                 <th>Produto</th>
                 <th>Qtd</th>
-                <th>Valor Unit.</th>
-                <th>Total</th>
-                <th>Lucro</th>
+                <th>Status</th>
                 <th>Pago?</th>
                 <th>Ação</th>
             </tr>
         </thead>
-        <tbody id="tabela"></tbody>
+        <tbody id="tabelaOperacao"></tbody>
     </table>
-    <h3>Total do mês: R$ <span id="totalMes">0</span></h3>
-
+    <h3>Total do mês: R$ <span id="totalMesOperacao">0</span></h3>
 </div>
-
-<div class="card">
-    <h3>📊 Dashboard</h3>
-
-    <div class="dashboard">
-        <div class="box">
-            <strong>Total Vendas</strong>
-            <p>R$ <span id="totalVendas">0.00</span></p>
-        </div>
-
-        <div class="box">
-            <strong>Total Lucro</strong>
-            <p>R$ <span id="totalLucro">0.00</span></p>
-        </div>
-
-        <div class="box">
-            <strong>Pendentes</strong>
-            <p>R$ <span id="totalPendente">0.00</span></p>
-        </div>
-
-        <div class="box">
-            <strong>Pedidos</strong>
-            <p><span id="qtdPedidos">0</span></p>
-        </div>
-    </div>
-</div>
-
+ 
 <div class="card">
     <h3>🧾 Recibo</h3>
     <div id="recibo"></div>
     <button onclick="enviarWhatsApp()">Enviar no WhatsApp</button>
 </div>
 
+<div class="card" id="cardPagamento" style="display:none;">
+    <h3>💰 Registrar pagamento</h3>
+    <p id="resumoPagamento"></p>
+    <input id="pagamentoPedidoId" type="hidden">
+    <label>Data do recebimento</label>
+    <input id="dataRecebimento" type="date">
+    <input id="valorRecebimento" type="number" min="0.01" step="0.01" placeholder="Valor recebido">
+    <select id="formaRecebimento">
+        <option>Pix</option><option>Dinheiro</option><option>Cartão</option><option>Outro</option>
+    </select>
+    <button onclick="registrarPagamento()">Salvar pagamento</button>
+    <button onclick="fecharRegistroPagamento()" style="background:#888;">Cancelar</button>
+    <div id="historicoPagamento"></div>
+</div>
 </div>
 
+<div id="visaoPedidos">
+    <div class="card">
+        <h3>🔎 Buscar Pedido</h3>
+        <input id="buscaCliente" placeholder="Digite o nome do cliente..." oninput="render()">
+        <label>Filtrar por mês:</label>
+        <select id="filtroMes" onchange="render()">
+            <option value="">Todos</option>
+            <option value="01">Janeiro</option><option value="02">Fevereiro</option>
+            <option value="03">Março</option><option value="04">Abril</option>
+            <option value="05">Maio</option><option value="06">Junho</option>
+            <option value="07">Julho</option><option value="08">Agosto</option>
+            <option value="09">Setembro</option><option value="10">Outubro</option>
+            <option value="11">Novembro</option><option value="12">Dezembro</option>
+        </select>
+    </div>
+
+    <div class="card">
+        <h3>Pedidos</h3>
+        <table>
+            <thead><tr>
+                <th>Data</th><th>Cliente</th><th>Produto</th><th>Qtd</th>
+                <th>Valor Unit.</th><th>Total</th>
+            </tr></thead>
+            <tbody id="tabela"></tbody>
+        </table>
+        <h3>Total do mês: R$ <span id="totalMes">0</span></h3>
+    </div>
+</div>
+ 
+</div>
+ 
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
+ 
 <script>
 const firebaseConfig = {
-  apiKey: "AIzaSyASqz8XoAhyD6w-klOr4HXlj_4URkQlBU8",
-  authDomain: "lv-maker.firebaseapp.com",
-  projectId: "lv-maker",
-  storageBucket: "lv-maker.firebasestorage.app",
-  messagingSenderId: "216355482221",
-  appId: "1:216355482221:web:5c3806b990538fa7dc6d64"
+    apiKey: "AIzaSyASqz8XoAhyD6w-klOr4HXlj_4URkQlBU8",
+    authDomain: "lv-maker.firebaseapp.com",
+    projectId: "lv-maker",
+    storageBucket: "lv-maker.firebasestorage.app",
+    messagingSenderId: "216355482221",
+    appId: "1:216355482221:web:5c3806b990538fa7dc6d64"
 };
-
+ 
 firebase.initializeApp(firebaseConfig);
+firebase.appCheck().activate(
+    new firebase.appCheck.ReCaptchaEnterpriseProvider("6LcX5IItAAAAAMMojs5eGD6mDUWpnFozv-P_xmC_"),
+    true
+);
 const db = firebase.firestore();
 const auth = firebase.auth();
-
+ 
 let pedidos = [];
+let pagamentos = [];
+let pedidosCatalogo = [];
+let pedidoEditando = null;
+let pedidoAtivo = null;
+let dadosPedidoURLAplicados = false;
+const emProducao = new URLSearchParams(window.location.search).get("aba") === "producao";
 
+document.getElementById("visaoOperacao").style.display = emProducao ? "block" : "none";
+document.getElementById("visaoPedidos").style.display = emProducao ? "none" : "block";
+document.querySelectorAll("nav a").forEach(link => link.classList.remove("ativo"));
+document.querySelector(emProducao ? 'nav a[href="index.html?aba=producao"]' : 'nav a[href="index.html"]').classList.add("ativo");
+ 
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/service-worker.js')
+        .catch(err => console.error('Service Worker error:', err));
+}
+ 
+function escaparHTML(valor) {
+    return String(valor ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+function normalizarTexto(valor) {
+    return String(valor || "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+}
+
+function gerarClienteId(userId, nome) {
+    const slug = normalizarTexto(nome) || "cliente";
+    return `${userId}_${slug}`.slice(0, 120);
+}
+
+async function salvarCadastroCliente(user, nome, telefone) {
+    const clienteId = gerarClienteId(user.uid, nome);
+    const ref = db.collection("clientes").doc(clienteId);
+    const agora = new Date();
+    const atual = await ref.get();
+    const dados = {
+        usuario: user.uid,
+        nome,
+        nomeBusca: normalizarTexto(nome),
+        telefone: telefone || "",
+        atualizadoEm: agora
+    };
+
+    if (atual.exists) {
+        await ref.update(dados);
+    } else {
+        await ref.set({
+            ...dados,
+            observacoes: "",
+            criadoEm: agora
+        });
+    }
+
+    return clienteId;
+}
+ 
+function abrirFichaCliente(nome) {
+    if (!nome) return;
+    window.location.href = `cliente.html?nome=${encodeURIComponent(nome)}`;
+}
+ 
+function abrirFichaClientePorPedido(id) {
+    const pedido = pedidos.find(p => p.docId === id);
+    if (!pedido) return;
+    if (pedido.clienteId) {
+        window.location.href = `cliente.html?id=${encodeURIComponent(pedido.clienteId)}&nome=${encodeURIComponent(pedido.cliente || "")}`;
+        return;
+    }
+    abrirFichaCliente(pedido.cliente);
+}
+ 
 async function login() {
     const email = document.getElementById("email").value;
     const senha = document.getElementById("senha").value;
-
-    if (!email || !senha) {
-        alert("Preencha email e senha");
-        return;
-    }
-
+    if (!email || !senha) { alert("Preencha email e senha"); return; }
     try {
         await auth.signInWithEmailAndPassword(email, senha);
-    } catch (erro) {
-        try {
-            await auth.createUserWithEmailAndPassword(email, senha);
-        } catch (e) {
-            alert("Erro: " + e.message);
-        }
+    } catch (e) {
+        alert("Não foi possível entrar: " + e.message);
     }
 }
-
-function logout() {
-    auth.signOut();
-}
-
+ 
+function logout() { auth.signOut(); }
+ 
 auth.onAuthStateChanged(user => {
     if (user) {
         document.getElementById("loginBox").style.display = "none";
         document.getElementById("sistema").style.display = "block";
+        if (emProducao) preencherPedidoDaURL();
         carregarPedidos();
+        if (emProducao) carregarPedidosCatalogo();
     } else {
         document.getElementById("loginBox").style.display = "block";
         document.getElementById("sistema").style.display = "none";
     }
 });
-
-async function salvar() {
-    const user = auth.currentUser;
-
-    const data = document.getElementById("data").value || new Date().toISOString().slice(0, 10);
-    const cliente = document.getElementById("cliente").value.trim();
-    const produto = document.getElementById("produto").value.trim();
-    const qtd = parseFloat(document.getElementById("qtd").value);
-    const valor = parseFloat(document.getElementById("valor").value);
-    const custo = parseFloat(document.getElementById("custo").value);
-    const pagamento = document.getElementById("pagamento").value;
-    const status = document.getElementById("status").value;
-    const pedidoId = Date.now();
-
-
-
-    if (!cliente || !produto || !qtd || !valor || !custo) {
-        alert("Preencha todos os campos");
-        return;
+ 
+function preencherPedidoDaURL() {
+    if (dadosPedidoURLAplicados) return;
+    const params = new URLSearchParams(window.location.search);
+    const cliente = params.get("cliente") || "";
+    const clienteId = params.get("clienteId") || "";
+    const telefone = params.get("telefone") || "";
+    const produto = params.get("produto") || "";
+    const qtd = params.get("qtd") || "";
+    const valor = params.get("valor") || "";
+    const custo = params.get("custo") || "";
+ 
+    if (!cliente && !telefone && !produto && !qtd && !valor && !custo) return;
+    document.getElementById("cliente").value = cliente;
+    document.getElementById("telefone").value = telefone;
+    document.getElementById("produto").value = produto;
+    document.getElementById("qtd").value = qtd;
+    document.getElementById("valor").value = valor;
+    document.getElementById("custo").value = custo;
+    document.getElementById("data").value = new Date().toISOString().slice(0, 10);
+    if (clienteId && cliente) {
+        document.getElementById("cliente").dataset.clienteId = clienteId;
+    } else {
+        delete document.getElementById("cliente").dataset.clienteId;
     }
-
-    const total = qtd * valor;
-    const lucro = total - (qtd * custo);
-
-    await db.collection("pedidos").add({
-        usuario: user.uid,
-        pedidoId,
-        data,
-        cliente,
-        produto,
-        qtd,
-        valor,
-        custo,
-        total,
-        lucro,
-        pagamento,
-        status,
-        pago: "Não",
-        criadoEm: new Date()
-    });
-
-    limparCampos();
-    carregarPedidos();
+    dadosPedidoURLAplicados = true;
+    window.history.replaceState({}, document.title, "index.html?aba=producao");
 }
+ 
+async function salvar() {
+    try {
+        const user = auth.currentUser;
+        if (!user) { alert("Faça login primeiro."); return; }
+ 
+        const data = document.getElementById("data").value || new Date().toISOString().slice(0, 10);
+        const dataPagamento = document.getElementById("dataPagamento").value || "";
+        const cliente = document.getElementById("cliente").value.trim();
+        const telefone = document.getElementById("telefone").value.trim();
+        const produto = document.getElementById("produto").value.trim();
+        const qtd = parseFloat(document.getElementById("qtd").value);
+        const valor = parseFloat(document.getElementById("valor").value);
+        const custo = parseFloat(document.getElementById("custo").value);
+        const pagamento = document.getElementById("pagamento").value;
+        const pago = document.getElementById("pago").value;
+        const pedidoExistente = pedidoEditando ? pedidos.find(p => p.docId === pedidoEditando) : null;
+        const status = pedidoExistente?.status || "Aguardando";
+ 
+        if (!cliente || !produto) {
+            alert("Preencha cliente e produto.");
+            return;
+        }
 
+        if (!Number.isFinite(qtd) || qtd <= 0 || !Number.isFinite(valor) || valor < 0 || !Number.isFinite(custo) || custo < 0) {
+            alert("Confira quantidade, valor unitário e custo unitário.");
+            return;
+        }
+ 
+        const telefoneLimpo = telefone.replace(/\D/g, "");
+        let clienteId = document.getElementById("cliente").dataset.clienteId || "";
+        try {
+            clienteId = await salvarCadastroCliente(user, cliente, telefoneLimpo);
+        } catch (erroCliente) {
+            console.warn("Não foi possível atualizar o cadastro do cliente:", erroCliente);
+        }
+        const total = qtd * valor;
+        const lucro = total - (qtd * custo);
+ 
+        const dadosPedido = {
+            data, dataPagamento, cliente, clienteId,
+            telefone: telefoneLimpo, produto,
+            qtd, valor, custo, total, lucro,
+            pagamento, status, pago
+        };
+ 
+        if (pedidoEditando) {
+            await db.collection("pedidos").doc(pedidoEditando).update(dadosPedido);
+            pedidoEditando = null;
+        } else {
+            await db.collection("pedidos").add({
+                usuario: user.uid,
+                pedidoId: Date.now(),
+                ...dadosPedido,
+                criadoEm: new Date()
+            });
+        }
+ 
+        limparCampos();
+        carregarPedidos();
+    } catch (erro) {
+        console.error("Erro ao salvar:", erro);
+        alert(`Erro ao salvar pedido: ${erro.code || ""} ${erro.message || erro}`);
+    }
+}
+ 
 function limparCampos() {
-    document.getElementById("data").value = "";
-    document.getElementById("cliente").value = "";
-    document.getElementById("produto").value = "";
-    document.getElementById("qtd").value = "";
-    document.getElementById("valor").value = "";
-    document.getElementById("custo").value = "";
+    ["data","dataPagamento","cliente","telefone","produto","qtd","valor","custo"].forEach(id => {
+        document.getElementById(id).value = "";
+    });
+    delete document.getElementById("cliente").dataset.clienteId;
+    document.getElementById("pago").value = "Não";
+    document.getElementById("pagamento").value = "Pix";
 }
-
+ 
 async function carregarPedidos() {
     const user = auth.currentUser;
     pedidos = [];
-
-    const snapshot = await db.collection("pedidos")
-        .where("usuario", "==", user.uid)
-        .get();
-
+    pagamentos = [];
+    const snapshot = await db.collection("pedidos").where("usuario", "==", user.uid).get();
     snapshot.forEach(doc => {
         const pedido = doc.data();
+        if (!pedido.cliente || !pedido.produto || pedido.total <= 0) return;
         pedido.docId = doc.id;
         pedidos.push(pedido);
     });
-
+    try {
+        const pagamentosSnapshot = await db.collection("pagamentos").where("usuario", "==", user.uid).get();
+        pagamentosSnapshot.forEach(doc => pagamentos.push({ docId: doc.id, ...doc.data() }));
+    } catch (erro) {
+        console.warn("Não foi possível carregar pagamentos:", erro);
+    }
+    pedidos.sort((a, b) => {
+        const dataA = new Date(a.data.includes("/") ? a.data.split("/").reverse().join("-") : a.data);
+        const dataB = new Date(b.data.includes("/") ? b.data.split("/").reverse().join("-") : b.data);
+        return dataA - dataB;
+    });
     render();
 }
 
-async function marcarPago(docId) {
-    await db.collection("pedidos").doc(docId).update({
-        pago: "Sim"
-    });
-
-    carregarPedidos();
+function pagamentosDoPedido(pedidoId) {
+    return pagamentos.filter(pagamento => pagamento.pedidoId === pedidoId);
 }
-async function alterarStatus(id, novoStatus) {
 
+function valorPagoPedido(pedido) {
+    const registros = pagamentosDoPedido(pedido.docId);
+    if (registros.length > 0) {
+        return registros.reduce((total, pagamento) => total + Number(pagamento.valor || 0), 0);
+    }
+    return pedido.pago === "Sim" ? Number(pedido.total || 0) : 0;
+}
+
+function saldoPedido(pedido) {
+    return Math.max(0, Number(pedido.total || 0) - valorPagoPedido(pedido));
+}
+
+function situacaoPagamento(pedido) {
+    const pago = valorPagoPedido(pedido);
+    const total = Number(pedido.total || 0);
+    if (pago >= total && total > 0) return "Pago";
+    if (pago > 0) return "Parcial";
+    return "Pendente";
+}
+
+async function carregarPedidosCatalogo() {
     try {
-
-        await db.collection("pedidos").doc(id).update({
-            status: novoStatus
+        pedidosCatalogo = [];
+        const snapshot = await db.collection("pedidosCatalogo").get();
+        snapshot.forEach(doc => {
+            const pedido = doc.data();
+            if (pedido.status !== "novo") return;
+            pedidosCatalogo.push({ docId: doc.id, ...pedido });
         });
-
-        console.log("Status atualizado!");
-
-        carregarPedidos();
-
+        pedidosCatalogo.sort((a, b) => {
+            const dataA = a.criadoEm?.toDate ? a.criadoEm.toDate() : new Date(a.criadoEm || 0);
+            const dataB = b.criadoEm?.toDate ? b.criadoEm.toDate() : new Date(b.criadoEm || 0);
+            return dataB - dataA;
+        });
+        renderPedidosCatalogo();
     } catch (erro) {
-
-        console.error("Erro ao atualizar:", erro);
-
+        console.error("Erro ao carregar pedidos do catálogo:", erro);
     }
 }
 
+function renderPedidosCatalogo() {
+    const card = document.getElementById("cardPedidosCatalogo");
+    const lista = document.getElementById("listaPedidosCatalogo");
 
+    if (pedidosCatalogo.length === 0) {
+        card.style.display = "none";
+        lista.innerHTML = "";
+        return;
+    }
+
+    card.style.display = "block";
+    lista.innerHTML = pedidosCatalogo.map((p, indice) => {
+        const itens = (p.itens || []).map(item =>
+            `${escaparHTML(item.nome || "-")} (${Number(item.qtd || 0)} un.)`
+        ).join("<br>");
+        const observacao = p.observacao ? `<br><small>Obs: ${escaparHTML(p.observacao)}</small>` : "";
+        return `
+            <div class="box" style="margin-bottom:10px;">
+                <strong>${escaparHTML(p.cliente || "Cliente")}</strong><br>
+                <small>${escaparHTML(p.telefone || "")}</small><br><br>
+                ${itens || "Sem itens"}
+                ${observacao}
+                <p><strong>Total:</strong> R$ ${Number(p.total || 0).toFixed(2)}</p>
+                <button onclick="aprovarPedidoCatalogo(${indice})">Aprovar e virar pedido</button>
+                <button onclick="arquivarPedidoCatalogo(${indice})" style="background:#888;">Arquivar</button>
+            </div>
+        `;
+    }).join("");
+}
+
+async function aprovarPedidoCatalogo(indice) {
+    const pedidoCatalogo = pedidosCatalogo[indice];
+    const user = auth.currentUser;
+    if (!pedidoCatalogo || !user) return;
+    if (!confirm("Transformar este pedido do catálogo em pedido interno?")) return;
+
+    try {
+        const cliente = (pedidoCatalogo.cliente || "").trim();
+        const telefone = String(pedidoCatalogo.telefone || "").replace(/\D/g, "");
+        const itens = pedidoCatalogo.itens || [];
+        if (itens.length === 0) {
+            alert("Esse pedido do catálogo não tem itens.");
+            return;
+        }
+
+        let clienteId = gerarClienteId(user.uid, cliente);
+        try {
+            clienteId = await salvarCadastroCliente(user, cliente, telefone);
+        } catch (erroCliente) {
+            console.warn("Não foi possível atualizar o cadastro do cliente:", erroCliente);
+        }
+
+        const dataHoje = new Date().toISOString().slice(0, 10);
+        await db.runTransaction(async transaction => {
+            const produtosParaBaixar = [];
+
+            for (const item of itens) {
+                const prontaEntrega = item.disponibilidade === "pronta_entrega";
+                if (!prontaEntrega || !item.produtoId) continue;
+
+                const produtoRef = db.collection("produtos").doc(item.produtoId);
+                const produtoDoc = await transaction.get(produtoRef);
+                if (!produtoDoc.exists) {
+                    throw new Error(`Produto não encontrado para baixa de estoque: ${item.nome || item.produtoId}`);
+                }
+
+                const produto = produtoDoc.data();
+                const estoqueAtual = Number(produto.estoquePronto || 0);
+                const qtdSolicitada = Number(item.qtd || 1);
+
+                if (estoqueAtual < qtdSolicitada) {
+                    throw new Error(`Estoque insuficiente para ${item.nome || produto.nome}. Disponível: ${estoqueAtual}, pedido: ${qtdSolicitada}.`);
+                }
+
+                produtosParaBaixar.push({ ref: produtoRef, estoqueAtual, qtdSolicitada });
+            }
+
+            itens.forEach((item, i) => {
+                const qtd = Number(item.qtd || 1);
+                const valor = Number(item.preco || 0);
+                const custo = 0;
+                const total = qtd * valor;
+                const ref = db.collection("pedidos").doc();
+                transaction.set(ref, {
+                    usuario: user.uid,
+                    pedidoId: Date.now() + i,
+                    data: dataHoje,
+                    dataPagamento: "",
+                    cliente,
+                    clienteId,
+                    telefone,
+                    produto: item.nome || "Produto do catálogo",
+                    produtoId: item.produtoId || "",
+                    qtd,
+                    valor,
+                    custo,
+                    total,
+                    lucro: total,
+                    pagamento: "A combinar",
+                    status: "Aguardando",
+                    pago: "Não",
+                    origem: "catalogo",
+                    pedidoCatalogoId: pedidoCatalogo.docId,
+                    criadoEm: new Date()
+                });
+            });
+
+            produtosParaBaixar.forEach(item => {
+                transaction.update(item.ref, {
+                    estoquePronto: Math.max(0, item.estoqueAtual - item.qtdSolicitada),
+                    atualizadoEm: new Date()
+                });
+            });
+
+            transaction.update(db.collection("pedidosCatalogo").doc(pedidoCatalogo.docId), {
+                status: "aprovado",
+                aprovadoEm: new Date(),
+                aprovadoPor: user.uid
+            });
+        });
+
+        await carregarPedidosCatalogo();
+        await carregarPedidos();
+        alert("Pedido do catálogo aprovado. O estoque de pronta entrega foi atualizado.");
+    } catch (erro) {
+        console.error("Erro ao aprovar pedido do catálogo:", erro);
+        alert(`Não foi possível aprovar o pedido do catálogo: ${erro.code || ""} ${erro.message || erro}`);
+    }
+}
+
+async function arquivarPedidoCatalogo(indice) {
+    const pedidoCatalogo = pedidosCatalogo[indice];
+    const user = auth.currentUser;
+    if (!pedidoCatalogo || !user) return;
+    if (!confirm("Arquivar este pedido recebido do catálogo?")) return;
+
+    await db.collection("pedidosCatalogo").doc(pedidoCatalogo.docId).update({
+        status: "arquivado",
+        arquivadoEm: new Date(),
+        arquivadoPor: user.uid
+    });
+    carregarPedidosCatalogo();
+}
+ 
+async function alterarStatus(id, novoStatus) {
+    try {
+        await db.collection("pedidos").doc(id).update({ status: novoStatus });
+        carregarPedidos();
+    } catch (erro) {
+        console.error("Erro ao atualizar:", erro);
+    }
+}
+ 
+async function alterarPago(id, novoPago) {
+    try {
+        await db.collection("pedidos").doc(id).update({ pago: novoPago });
+        carregarPedidos();
+    } catch (erro) {
+        console.error("Erro ao atualizar:", erro);
+    }
+}
+
+function abrirRegistroPagamento(id) {
+    const pedido = pedidos.find(p => p.docId === id);
+    if (!pedido) return;
+    const saldo = saldoPedido(pedido);
+    if (saldo <= 0) { alert("Este pedido já está quitado."); return; }
+    document.getElementById("pagamentoPedidoId").value = id;
+    document.getElementById("dataRecebimento").value = new Date().toISOString().slice(0, 10);
+    document.getElementById("valorRecebimento").value = saldo.toFixed(2);
+    document.getElementById("formaRecebimento").value = pedido.pagamento || "Pix";
+    document.getElementById("resumoPagamento").innerHTML = `<strong>${escaparHTML(pedido.cliente)}</strong> — ${escaparHTML(pedido.produto)}<br>Pedido: R$ ${Number(pedido.total || 0).toFixed(2)} · Já pago: R$ ${valorPagoPedido(pedido).toFixed(2)} · <strong>Saldo: R$ ${saldo.toFixed(2)}</strong>`;
+    const historico = pagamentosDoPedido(id).sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")));
+    document.getElementById("historicoPagamento").innerHTML = historico.length
+        ? `<h4>Recebimentos registrados</h4><table><thead><tr><th>Data</th><th>Forma</th><th>Valor</th></tr></thead><tbody>${historico.map(pagamento => `<tr><td>${formatarData(pagamento.data)}</td><td>${escaparHTML(pagamento.forma || "-")}</td><td>R$ ${Number(pagamento.valor || 0).toFixed(2)}</td></tr>`).join("")}</tbody></table>`
+        : "<p><small>Nenhum recebimento parcial registrado ainda.</small></p>";
+    document.getElementById("cardPagamento").style.display = "block";
+    document.getElementById("cardPagamento").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function fecharRegistroPagamento() {
+    document.getElementById("cardPagamento").style.display = "none";
+    document.getElementById("pagamentoPedidoId").value = "";
+}
+
+async function registrarPagamento() {
+    const user = auth.currentUser;
+    const pedidoId = document.getElementById("pagamentoPedidoId").value;
+    const pedido = pedidos.find(p => p.docId === pedidoId);
+    const valor = Number(document.getElementById("valorRecebimento").value);
+    const data = document.getElementById("dataRecebimento").value || new Date().toISOString().slice(0, 10);
+    const forma = document.getElementById("formaRecebimento").value;
+    if (!user || !pedido || !Number.isFinite(valor) || valor <= 0) { alert("Informe um valor de pagamento válido."); return; }
+    const saldo = saldoPedido(pedido);
+    if (valor > saldo + 0.009) { alert(`O valor informado é maior que o saldo de R$ ${saldo.toFixed(2)}.`); return; }
+    try {
+        await db.collection("pagamentos").add({ usuario: user.uid, pedidoId: pedido.docId, clienteId: pedido.clienteId || "", cliente: pedido.cliente || "", data, forma, valor, criadoEm: new Date() });
+        await db.collection("pedidos").doc(pedido.docId).update({ pago: valor >= saldo - 0.009 ? "Sim" : "Não" });
+        fecharRegistroPagamento();
+        await carregarPedidos();
+    } catch (erro) {
+        console.error("Erro ao registrar pagamento:", erro);
+        alert("Não foi possível registrar o pagamento. Verifique as regras do Firestore.");
+    }
+}
+ 
 async function excluir(docId) {
-    const confirmar = confirm("Tem certeza que deseja excluir esse pedido?");
-
-    if (!confirmar) return;
-
+    if (!confirm("Tem certeza que deseja excluir esse pedido?")) return;
     await db.collection("pedidos").doc(docId).delete();
     carregarPedidos();
 }
-
-function gerarRecibo(p) {
+ 
+function editarPedido(p) {
+    document.getElementById("data").value = p.data || "";
+    document.getElementById("dataPagamento").value = p.dataPagamento || "";
+    document.getElementById("cliente").value = p.cliente || "";
+    document.getElementById("telefone").value = p.telefone || "";
+    if (p.clienteId) {
+        document.getElementById("cliente").dataset.clienteId = p.clienteId;
+    } else {
+        delete document.getElementById("cliente").dataset.clienteId;
+    }
+    document.getElementById("produto").value = p.produto || "";
+    document.getElementById("qtd").value = p.qtd || "";
+    document.getElementById("valor").value = p.valor || "";
+    document.getElementById("custo").value = p.custo || "";
+    document.getElementById("pagamento").value = p.pagamento || "Pix";
+    document.getElementById("pago").value = p.pago || "Não";
+    pedidoEditando = p.docId;
+}
+ 
+function editarPedidoPorId(id) {
+    const pedido = pedidos.find(p => p.docId === id);
+    if (!pedido) return;
+    editarPedido(pedido);
+}
+ 
+function gerarRecibo(docId) {
+    const p = pedidos.find(x => x.docId === docId);
+    if (!p) return;
+    pedidoAtivo = p;
     document.getElementById("recibo").innerHTML = `
         <h4>LV Maker</h4>
-        <b>Data:</b> ${p.data.includes("-") ? formatarData(p.data) : p.data}<br>
-        <b>Cliente:</b> ${p.cliente}<br>
-        <b>Produto:</b> ${p.produto}<br>
+        <b>Data do Pedido:</b> ${formatarData(p.data)}<br>
+        <b>Data de Pagamento:</b> ${p.dataPagamento ? formatarData(p.dataPagamento) : "Não informada"}<br>
+        <b>Cliente:</b> ${escaparHTML(p.cliente)}<br>
+        <b>Telefone:</b> ${escaparHTML(p.telefone)}<br>
+        <b>Produto:</b> ${escaparHTML(p.produto)}<br>
         <b>Quantidade:</b> ${p.qtd}<br>
         <b>Total:</b> R$ ${Number(p.total).toFixed(2)}<br>
-        <b>Pagamento:</b> ${p.pagamento}<br>
-        <b>Pago:</b> ${p.pago}
+        <b>Já pago:</b> R$ ${valorPagoPedido(p).toFixed(2)}<br>
+        <b>Saldo:</b> R$ ${saldoPedido(p).toFixed(2)}<br>
+        <b>Forma de pagamento:</b> ${escaparHTML(p.pagamento)}<br>
+        <b>Status do pagamento:</b> ${situacaoPagamento(p)}
     `;
 }
-
+ 
+// ─── VERIFICA PAGAMENTO VENCIDO ───────────────────
+function pagamentoVencido(p) {
+    if (saldoPedido(p) <= 0) return false;
+    if (!p.dataPagamento) return false;
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const dataRef = p.dataPagamento.includes("/")
+        ? p.dataPagamento.split("/").reverse().join("-")
+        : p.dataPagamento;
+    const dataPag = new Date(dataRef);
+    return dataPag < hoje;
+}
+ 
 function render() {
-    const mesSelecionado = document.getElementById("filtroMes").value;
-    let totalMes = 0;
-    const tabela = document.getElementById("tabela");
-    tabela.innerHTML = "";
+    const mesSelecionado = document.getElementById(emProducao ? "filtroMesOperacao" : "filtroMes").value;
+    const busca = document.getElementById(emProducao ? "buscaClienteOperacao" : "buscaCliente").value.toLowerCase();
 
-    const busca = document.getElementById("buscaCliente").value.toLowerCase();
+    if (!emProducao) {
+        const tabela = document.getElementById("tabela");
+        tabela.innerHTML = "";
+        let totalMes = 0;
 
-    let totalVendas = 0;
-    let totalLucro = 0;
-    let totalPendente = 0;
-    let qtdPedidos = 0;
+        pedidos.forEach(p => {
+            if (busca && !(p.cliente || "").toLowerCase().includes(busca)) return;
+            if (mesSelecionado && obterMesPedido(p.data) !== mesSelecionado) return;
 
-    
-   pedidos.forEach(p => {
-
-    // 🔍 filtro busca
-    if (busca && !p.cliente.toLowerCase().includes(busca)) return;
-
-    // 📅 filtro mês
-    if (mesSelecionado) {
-
-        let mesPedido = "";
-
-        if (p.data.includes("-")) {
-            mesPedido = p.data.split("-")[1];
-        }
-
-        if (p.data.includes("/")) {
-            mesPedido = p.data.split("/")[1];
-        }
-
-        if (mesPedido !== mesSelecionado) return;
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${formatarData(p.data)}</td>
+                <td>${escaparHTML(p.cliente || "-")}</td>
+                <td>${escaparHTML(p.produto || "-")}</td>
+                <td>${p.qtd || 0}</td>
+                <td>R$ ${Number(p.valor || 0).toFixed(2)}</td>
+                <td>R$ ${Number(p.total || 0).toFixed(2)}</td>
+            `;
+            tabela.appendChild(tr);
+            totalMes += Number(p.total || 0);
+        });
+        document.getElementById("totalMes").innerText = totalMes.toFixed(2);
+        return;
     }
 
-    const tr = document.createElement("tr");
-        tr.className = p.pago === "Sim" ? "pago" : "nao";
-
+    const tabela = document.getElementById("tabelaOperacao");
+    tabela.innerHTML = "";
+    let totalMes = 0;
+ 
+    pedidos.forEach(p => {
+        if (busca && !(p.cliente || "").toLowerCase().includes(busca)) return;
+        if (mesSelecionado && obterMesPedido(p.data) !== mesSelecionado) return;
+ 
+        const tr = document.createElement("tr");
+        const vencido = pagamentoVencido(p);
+ 
+        // Cor de status de entrega
+        if (p.status === "Aguardando") tr.style.backgroundColor = "#ffab76";
+        else if (p.status === "Imprimindo") tr.style.backgroundColor = "#fff3cd";
+        else if (p.status === "Pronto") tr.style.backgroundColor = "#d6d6d6";
+        else if (p.status === "Entregue") tr.style.backgroundColor = "#c6efce";
+ 
+        // Alerta de pagamento vencido — borda vermelha na linha
+        if (vencido) {
+            tr.style.outline = "2px solid #e74c3c";
+            tr.style.outlineOffset = "-2px";
+        }
+ 
+        // Badge de vencido na célula de data de pagamento
+        const badgeVencido = vencido
+            ? ` <span title="Pagamento vencido" style="color:#e74c3c;font-size:14px;">⚠️</span>`
+            : "";
+ 
         tr.innerHTML = `
-            
             <td><input type="checkbox" class="selecionado" data-id="${p.docId}"></td>
             <td>${formatarData(p.data)}</td>
-            <td>${p.cliente || "-"}</td>
-            <td>${p.produto || "-"}</td>
-            <td>${p.qtd || 0}</td>
-            <td>R$ ${Number(p.valor || 0).toFixed(2)}</td>
-            <td>R$ ${Number(p.total || 0).toFixed(2)}</td>
-            <td>R$ ${Number(p.lucro || 0).toFixed(2)}</td>
-            <td>${p.pago || "Não"}</td>
+            <td>${p.dataPagamento ? formatarData(p.dataPagamento) + badgeVencido : "-"}</td>
             <td>
-                
-                <button onclick='gerarRecibo(${JSON.stringify(p)})'>Recibo</button>
-                <button onclick="marcarPago('${p.docId}')">Pago</button>
+                <button class="link-cliente" onclick="abrirFichaClientePorPedido('${p.docId}')">
+                    ${escaparHTML(p.cliente || "-")}
+                </button>
+            </td>
+            <td>${escaparHTML(p.produto || "-")}</td>
+            <td>${p.qtd || 0}</td>
+            <td>${escaparHTML(p.status || "Aguardando")}</td>
+            <td>
+                ${situacaoPagamento(p)}<br>
+                <small>Pago: R$ ${valorPagoPedido(p).toFixed(2)}<br>Saldo: R$ ${saldoPedido(p).toFixed(2)}</small>
+            </td>
+            <td>
+                <button onclick="editarPedidoPorId('${p.docId}')">Editar</button>
+                <button onclick="gerarRecibo('${p.docId}')">Recibo</button>
                 <button onclick="excluir('${p.docId}')">Excluir</button>
-
                 <br><br>
                 <select onchange="alterarStatus('${p.docId}', this.value)">
                     <option value="Aguardando" ${p.status === "Aguardando" ? "selected" : ""}>Aguardando</option>
@@ -438,48 +814,43 @@ function render() {
                     <option value="Pronto" ${p.status === "Pronto" ? "selected" : ""}>Pronto</option>
                     <option value="Entregue" ${p.status === "Entregue" ? "selected" : ""}>Entregue</option>
                 </select>
-
-
-                
-                
-               
-                
+                <button onclick="abrirRegistroPagamento('${p.docId}')">Registrar pagamento</button>
+                <br><br>
+                <select id="msg-${p.docId}">
+                    <option value="confirmar">Confirmar pedido</option>
+                    <option value="imprimindo">Começou a impressão</option>
+                    <option value="pronto">Pedido pronto</option>
+                    <option value="retirada">Pronto para retirada</option>
+                    <option value="cobranca">Cobrar pagamento</option>
+                </select>
+                <button onclick="enviarMensagemPedido('${p.docId}')">WhatsApp</button>
             </td>
         `;
-
+ 
         tabela.appendChild(tr);
-
-        totalVendas += Number(p.total || 0);
-        totalLucro += Number(p.lucro || 0);
-        qtdPedidos++;
-
-        if (p.pago !== "Sim") {
-            totalPendente += Number(p.total || 0);
-        }
+        totalMes += Number(p.total || 0);
     });
-
-    document.getElementById("totalVendas").innerText = totalVendas.toFixed(2);
-    document.getElementById("totalLucro").innerText = totalLucro.toFixed(2);
-    document.getElementById("totalPendente").innerText = totalPendente.toFixed(2);
-    document.getElementById("qtdPedidos").innerText = qtdPedidos;
+ 
+    document.getElementById("totalMesOperacao").innerText = totalMes.toFixed(2);
 }
 
+function obterMesPedido(data) {
+    const valor = String(data || "");
+    if (valor.includes("-")) return valor.split("-")[1] || "";
+    if (valor.includes("/")) return valor.split("/")[1] || "";
+    return "";
+}
+ 
 function gerarReciboSelecionado() {
     const selecionados = document.querySelectorAll(".selecionado:checked");
-
-    if (selecionados.length === 0) {
-        alert("Selecione pelo menos um pedido.");
-        return;
-    }
-
+    if (selecionados.length === 0) { alert("Selecione pelo menos um pedido."); return; }
+ 
     let pedidosSelecionados = [];
     let totalGeral = 0;
     let cliente = "";
-
+ 
     selecionados.forEach(check => {
-        const id = check.getAttribute("data-id");
-        const pedido = pedidos.find(p => p.docId === id);
-
+        const pedido = pedidos.find(p => p.docId === check.getAttribute("data-id"));
         if (pedido) {
             pedidosSelecionados.push(pedido);
             totalGeral += Number(pedido.total || 0);
@@ -487,61 +858,143 @@ function gerarReciboSelecionado() {
         }
     });
 
-    let html = `
-        <h4>LV Maker</h4>
-        <b>Cliente:</b> ${cliente}<br><br>
-    `;
-    pedidosSelecionados.forEach(p => {
-        html += `
-        Data: ${p.data.includes("-") ? formatarData(p.data) : p.data}<br>
-        Produto: ${p.produto}<br>
-        Quantidade: ${p.qtd}<br>
-        Total: R$ ${Number(p.total || 0).toFixed(2)}<br>
-        <hr>
-    `;
-});
-
-    html += `<b>Total Geral:</b> R$ ${totalGeral.toFixed(2)}`;
-
-    document.getElementById("recibo").innerHTML = html;
-}
-function enviarWhatsApp() {
-
-    const reciboHTML = document.getElementById("recibo").innerText;
-
-    if (!reciboHTML) {
-        alert("Gere um recibo primeiro!");
+    const clientesDoRecibo = new Set(pedidosSelecionados.map(p => {
+        return p.clienteId || String(p.cliente || "").trim().toLowerCase();
+    }));
+    if (clientesDoRecibo.size > 1) {
+        pedidoAtivo = null;
+        alert("Selecione apenas pedidos da mesma cliente para gerar e enviar um único recibo.");
         return;
     }
-
-    const mensagem = encodeURIComponent(
-`🧾 *LV Maker*
-
-${reciboHTML}
-
-Obrigado pela preferência 🙌`
-    );
-
-    const url = `https://wa.me/?text=${mensagem}`;
-
-    window.open(url, "_blank");
+ 
+    let html = `<h4>LV Maker</h4><b>Cliente:</b> ${escaparHTML(cliente)}<br><br>`;
+    pedidosSelecionados.forEach(p => {
+        html += `
+            Data do Pedido: ${formatarData(p.data)}<br>
+            Data de Pagamento: ${p.dataPagamento ? formatarData(p.dataPagamento) : "Não informada"}<br>
+            Produto: ${escaparHTML(p.produto)}<br>
+            Quantidade: ${p.qtd}<br>
+            Total: R$ ${Number(p.total || 0).toFixed(2)}<br>
+            Já pago: R$ ${valorPagoPedido(p).toFixed(2)}<br>
+            Saldo: R$ ${saldoPedido(p).toFixed(2)}<br>
+            Status do pagamento: ${situacaoPagamento(p)}<br><hr>
+        `;
+    });
+    html += `<b>Total Geral:</b> R$ ${totalGeral.toFixed(2)}`;
+    document.getElementById("recibo").innerHTML = html;
+    // Todos os pedidos selecionados são da mesma cliente: usa o telefone dela.
+    pedidoAtivo = pedidosSelecionados[0];
+}
+ 
+function enviarWhatsApp() {
+    if (!pedidoAtivo) { alert("Gere um recibo antes de enviar pelo WhatsApp."); return; }
+    if (!pedidoAtivo.telefone) { alert("Pedido sem telefone cadastrado."); return; }
+    const telefone = normalizarTelefoneWhatsApp(pedidoAtivo.telefone);
+    const reciboHTML = document.getElementById("recibo").innerText;
+    const mensagem = encodeURIComponent(`🧾 *LV Maker*\n\n${reciboHTML}\n\nObrigado pela preferência 🙌`);
+    window.open(`https://wa.me/${telefone}?text=${mensagem}`, "_blank");
 }
 
+function normalizarTelefoneWhatsApp(telefone) {
+    const numeros = String(telefone || "").replace(/\D/g, "");
+    return numeros.startsWith("55") ? numeros : `55${numeros}`;
+}
+ 
+function montarMensagemPedido(p, tipo) {
+    const total = Number(p.total || 0).toFixed(2);
+    const dataPedido = formatarData(p.data);
+ 
+    if (tipo === "confirmar") return `Olá, ${p.cliente}!\n\nSeu pedido foi confirmado na LV Maker 3D.\n\nProduto: ${p.produto}\nQuantidade: ${p.qtd}\nTotal: R$ ${total}\nData do pedido: ${dataPedido}\n\nAssim que eu iniciar a impressão te aviso por aqui.`;
+    if (tipo === "imprimindo") return `Olá, ${p.cliente}!\n\nPassando para avisar que seu pedido entrou em impressão.\n\nProduto: ${p.produto}\nQuantidade: ${p.qtd}\n\nTe aviso assim que ficar pronto.`;
+    if (tipo === "pronto") return `Olá, ${p.cliente}!\n\nSeu pedido ficou pronto!\n\nProduto: ${p.produto}\nQuantidade: ${p.qtd}\nTotal: R$ ${total}\n\nPode me chamar por aqui para combinarmos a retirada ou entrega.`;
+    if (tipo === "retirada") return `Olá, ${p.cliente}!\n\nSeu pedido já está pronto para retirada.\n\nProduto: ${p.produto}\nQuantidade: ${p.qtd}\n\nQuando puder, me avise para combinarmos o melhor horário.`;
+    return `Olá, ${p.cliente}!\n\nPassando para lembrar do pagamento pendente do seu pedido na LV Maker 3D.\n\nProduto: ${p.produto}\nQuantidade: ${p.qtd}\nTotal: R$ ${total}\nJá pago: R$ ${valorPagoPedido(p).toFixed(2)}\nSaldo pendente: R$ ${saldoPedido(p).toFixed(2)}\nForma de pagamento: ${p.pagamento || "não informada"}\n\nQualquer dúvida estou à disposição.`;
+}
+ 
+function enviarMensagemPedido(docId) {
+    const pedido = pedidos.find(p => p.docId === docId);
+    if (!pedido) return;
+    if (!pedido.telefone) { alert("Pedido sem telefone cadastrado."); return; }
+    const select = document.getElementById(`msg-${docId}`);
+    const tipo = select ? select.value : "confirmar";
+    const telefone = normalizarTelefoneWhatsApp(pedido.telefone);
+    const mensagem = encodeURIComponent(montarMensagemPedido(pedido, tipo));
+    window.open(`https://wa.me/${telefone}?text=${mensagem}`, "_blank");
+}
+ 
+function enviarCobrancaSelecionados() {
+    const selecionados = document.querySelectorAll(".selecionado:checked");
+    if (selecionados.length === 0) { alert("Selecione pelo menos um pedido."); return; }
+ 
+    let pedidosSelecionados = [];
+    let totalGeral = 0;
+ 
+    selecionados.forEach(check => {
+        const pedido = pedidos.find(p => p.docId === check.getAttribute("data-id"));
+        if (pedido) {
+            pedidosSelecionados.push(pedido);
+            totalGeral += saldoPedido(pedido);
+        }
+    });
+ 
+    const primeiro = pedidosSelecionados[0];
+    if (!primeiro.telefone) { alert("Cliente sem telefone cadastrado."); return; }
+ 
+    const telefone = primeiro.telefone.replace(/\D/g, "");
+    let linhasPedidos = "";
+    pedidosSelecionados.forEach((p, i) => {
+        linhasPedidos += `📦 Pedido ${i + 1}\nProduto: ${p.produto}\nQuantidade: ${p.qtd}\nTotal: R$ ${Number(p.total).toFixed(2)}\nJá pago: R$ ${valorPagoPedido(p).toFixed(2)}\nSaldo: R$ ${saldoPedido(p).toFixed(2)}\n\n`;
+    });
+ 
+    const mensagem = encodeURIComponent(
+`📌 *Lembrete de Pagamento - LV Maker*
+ 
+Olá, ${primeiro.cliente}!
+ 
+Segue o resumo dos pedidos pendentes:
+ 
+${linhasPedidos}💰 *Total Geral: R$ ${totalGeral.toFixed(2)}*
+ 
+Forma de pagamento: ${primeiro.pagamento}
+ 
+Qualquer dúvida estou à disposição 🙌`
+    );
+ 
+    window.open(`https://wa.me/55${telefone}?text=${mensagem}`, "_blank");
+}
+ 
+function exportarCSV() {
+    if (pedidos.length === 0) { alert("Nenhum pedido para exportar."); return; }
+    let csv = "Data Pedido;Data Pagamento;Cliente;Telefone;Produto;Quantidade;Valor Unitario;Total;Lucro;Pagamento;Status;Pago\n";
+    pedidos.forEach(p => {
+        csv += `${p.data||""};${p.dataPagamento||""};${p.cliente||""};"'${p.telefone||""}";${p.produto||""};${p.qtd||0};${p.valor||0};${p.total||0};${p.lucro||0};${p.pagamento||""};${p.status||""};${p.pago||""}\n`;
+    });
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.setAttribute("href", URL.createObjectURL(blob));
+    link.setAttribute("download", "pedidos_lv_maker.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+ 
+function buscarTelefoneCliente() {
+    const nome = document.getElementById("cliente").value.trim().toLowerCase();
+    if (nome.length < 2) return;
+    const encontrado = pedidos.find(p => p.cliente && p.cliente.toLowerCase() === nome && p.telefone);
+    if (encontrado) document.getElementById("telefone").value = encontrado.telefone;
+}
+ 
 function formatarData(data) {
     if (!data) return "";
-
-    // já está no formato brasileiro
     if (data.includes("/")) return data;
-
-    // formato padrão ISO (2026-05-10)
     if (data.includes("-")) {
         const partes = data.split("-");
         return `${partes[2]}/${partes[1]}/${partes[0]}`;
     }
-
     return data;
 }
 </script>
-
+ 
 </body>
 </html>

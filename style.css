@@ -1,0 +1,346 @@
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f9;
+    padding: 20px;
+}
+ 
+h1 {
+    color: #0f243e;
+}
+ 
+input, select, button {
+    padding: 8px;
+    margin: 5px;
+}
+ 
+button {
+    background: #0f243e;
+    color: white;
+    border: none;
+    cursor: pointer;
+    border-radius: 6px;
+}
+ 
+button:hover {
+    background: #1b3a5a;
+}
+ 
+.card {
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 20px;
+}
+ 
+table {
+    width: 100%;
+    margin-top: 20px;
+    border-collapse: collapse;
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+ 
+th {
+    background: #0f243e;
+    color: white;
+    padding: 10px;
+}
+ 
+td {
+    padding: 8px;
+    border-bottom: 1px solid #ccc;
+}
+
+.link-cliente {
+    background: transparent;
+    color: #0f243e;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font-weight: bold;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.link-cliente:hover {
+    background: transparent;
+    color: #1b3a5a;
+}
+ 
+.pago {
+    background: #00b050; 
+}
+ 
+.nao {
+    background: #ff0000; 
+}
+ 
+.dashboard {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+ 
+.box {
+    background: #f4f6f9;
+    padding: 15px;
+    border-radius: 10px;
+    min-width: 180px;
+}
+
+.box-clicavel {
+    cursor: pointer;
+}
+
+.box-clicavel:hover {
+    background: #e8eef5;
+}
+
+.box small {
+    color: #555;
+}
+ 
+nav {
+    margin-top: 10px;
+    margin-bottom: 5px;
+}
+ 
+nav a {
+    color: white;
+    background: #0f243e;
+    padding: 8px 14px;
+    border-radius: 6px;
+    text-decoration: none;
+    margin-right: 8px;
+    font-size: 14px;
+}
+ 
+nav a:hover {
+    background: #1b3a5a;
+}
+ 
+nav a.ativo {
+    background: #1b3a5a;
+    border-bottom: 3px solid #4fc3f7;
+}
+/* ─── BASE ─────────────────────────────────────────── */
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f9;
+    padding: 20px;
+}
+ 
+h1 {
+    color: #0f243e;
+}
+ 
+input, select {
+    padding: 8px;
+    margin: 5px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+ 
+button {
+    padding: 8px 12px;
+    margin: 5px;
+    background: #0f243e;
+    color: white;
+    border: none;
+    cursor: pointer;
+    border-radius: 6px;
+}
+ 
+button:hover {
+    background: #1b3a5a;
+}
+ 
+/* ─── CARD ─────────────────────────────────────────── */
+.card {
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 20px;
+}
+ 
+/* ─── NAV ──────────────────────────────────────────── */
+nav {
+    margin-top: 10px;
+    margin-bottom: 5px;
+}
+ 
+nav a {
+    color: white;
+    background: #0f243e;
+    padding: 8px 14px;
+    border-radius: 6px;
+    text-decoration: none;
+    margin-right: 8px;
+    font-size: 14px;
+}
+ 
+nav a:hover {
+    background: #1b3a5a;
+}
+ 
+nav a.ativo {
+    background: #1b3a5a;
+    border-bottom: 3px solid #4fc3f7;
+}
+ 
+/* ─── TABELA ────────────────────────────────────────── */
+table {
+    width: 100%;
+    margin-top: 20px;
+    border-collapse: collapse;
+}
+ 
+th {
+    background: #0f243e;
+    color: white;
+    padding: 10px;
+    text-align: left;
+}
+ 
+td {
+    padding: 8px;
+    border-bottom: 1px solid #ccc;
+}
+ 
+/* ─── STATUS PAGO ───────────────────────────────────── */
+.pago { background: #00b050; }
+.nao  { background: #ff0000; }
+ 
+/* ─── DASHBOARD ─────────────────────────────────────── */
+.dashboard {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+ 
+.box {
+    background: #f4f6f9;
+    padding: 15px;
+    border-radius: 10px;
+    min-width: 180px;
+}
+ 
+/* ─── DESKTOP (acima de 768px) ──────────────────────── */
+@media (min-width: 768px) {
+ 
+    body {
+        padding: 30px 40px;
+    }
+ 
+    .card {
+        padding: 20px 25px;
+    }
+ 
+    .card input,
+    .card select {
+        width: auto;
+        min-width: 140px;
+    }
+ 
+    table {
+        display: table;
+        white-space: normal;
+        overflow-x: visible;
+    }
+ 
+    #buscaCliente {
+        width: 300px;
+    }
+}
+ 
+/* ─── MOBILE (abaixo de 768px) ──────────────────────── */
+@media (max-width: 767px) {
+ 
+    body {
+        padding: 10px;
+    }
+ 
+    input, select {
+        width: calc(100% - 12px);
+        box-sizing: border-box;
+        display: block;
+    }
+ 
+    button {
+        width: 100%;
+        box-sizing: border-box;
+        margin: 5px 0;
+    }
+ 
+    table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+ 
+    .dashboard {
+        flex-direction: column;
+    }
+ 
+    .box {
+        min-width: unset;
+        width: 100%;
+        box-sizing: border-box;
+    }
+ 
+    nav a {
+        display: inline-block;
+        margin-bottom: 5px;
+    }
+}
+
+.orcamento-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 10px 14px;
+    align-items: end;
+}
+
+.orcamento-grid label {
+    display: block;
+    margin: 5px;
+    font-size: 13px;
+    color: #555;
+}
+
+.orcamento-grid input,
+.orcamento-grid select {
+    width: calc(100% - 10px);
+    box-sizing: border-box;
+}
+
+.tempo-duplo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.tempo-duplo input {
+    width: 100%;
+    margin-right: 0;
+}
+
+.orcamento-resumo {
+    margin-top: 15px;
+}
+
+.detalhe-custos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 12px 5px;
+    color: #444;
+    font-size: 14px;
+}
+
+.detalhe-custos span {
+    background: #f4f6f9;
+    border-radius: 6px;
+    padding: 8px 10px;
+}

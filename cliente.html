@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LV Maker PRO - Cliente</title>
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f243e">
+</head>
+
+<body>
+
+<div id="sistema" style="display:none;">
+
+<h1>📦 LV Maker PRO</h1>
+
+<nav>
+    <a href="index.html">📋 Pedidos</a>
+    <a href="orcamentos.html">Orçamentos</a>
+    <a href="financeiro.html">📊 Financeiro</a>
+    <a href="produtos.html">🛍️ Produtos</a>
+</nav>
+
+<div class="card">
+    <h2 id="nomeCliente"></h2>
+    <p id="telefoneCliente" style="color:#555;"></p>
+
+    <div class="dashboard" style="margin-top:15px;">
+        <div class="box">
+            <strong>Total Gasto</strong>
+            <p>R$ <span id="totalGasto">0.00</span></p>
+        </div>
+        <div class="box">
+            <strong>Já Pago</strong>
+            <p>R$ <span id="totalPago">0.00</span></p>
+        </div>
+        <div class="box">
+            <strong>Pendente</strong>
+            <p>R$ <span id="totalPendente">0.00</span></p>
+        </div>
+        <div class="box">
+            <strong>Pedidos</strong>
+            <p><span id="qtdPedidos">0</span></p>
+        </div>
+    </div>
+
+    <div style="margin-top:15px;">
+        <button onclick="novoPedidoCliente()">➕ Novo Pedido para este Cliente</button>
+        <button onclick="enviarCobranca()">📌 Enviar Cobrança (Pendentes)</button>
+        <button onclick="window.history.back()" style="background:#888;">← Voltar</button>
+    </div>
+</div>
+
+<div class="card">
+    <h3>Dados do Cliente</h3>
+    <input id="clienteNome" placeholder="Nome do cliente">
+    <input id="clienteTelefone" placeholder="Telefone com DDD">
+    <textarea id="clienteObservacoes" placeholder="Observações sobre o cliente..." style="width:100%;max-width:600px;min-height:80px;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:14px;font-family:Arial,sans-serif;resize:vertical;margin:5px;"></textarea>
+    <button onclick="salvarCliente()">Salvar Cliente</button>
+</div>
+
+<div class="card">
+    <h3>Pedidos</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Data Pedido</th>
+                <th>Data Pagamento</th>
+                <th>Produto</th>
+                <th>Qtd</th>
+                <th>Total</th>
+                <th>Pago</th>
+                <th>Saldo</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="tabela"></tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h3>🧮 Orçamentos</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Data</th>
+                <th>Projeto</th>
+                <th>Qtd</th>
+                <th>Preço Sugerido</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Ação</th>
+            </tr>
+        </thead>
+        <tbody id="tabelaOrcamentos"></tbody>
+    </table>
+</div>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+    apiKey: "AIzaSyASqz8XoAhyD6w-klOr4HXlj_4URkQlBU8",
+    authDomain: "lv-maker.firebaseapp.com",
+    projectId: "lv-maker",
+    storageBucket: "lv-maker.firebasestorage.app",
+    messagingSenderId: "216355482221",
+    appId: "1:216355482221:web:5c3806b990538fa7dc6d64"
+};
+
+firebase.initializeApp(firebaseConfig);
+firebase.appCheck().activate(
+    new firebase.appCheck.ReCaptchaEnterpriseProvider("6LcX5IItAAAAAMMojs5eGD6mDUWpnFozv-P_xmC_"),
+    true
+);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+let pedidos = [];
+let pagamentos = [];
+let orcamentosCliente = [];
+let clienteAtual = null;
+const params = new URLSearchParams(window.location.search);
+const clienteIdParam = params.get("id") || "";
+const nomeCliente = params.get("nome") || "";
+
+function escaparHTML(valor) {
+    return String(valor ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+function normalizarTexto(valor) {
+    return String(valor || "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+}
+
+function gerarClienteId(userId, nome) {
+    const slug = normalizarTexto(nome) || "cliente";
+    return `${userId}_${slug}`.slice(0, 120);
+}
+
+auth.onAuthStateChanged(user => {
+    if (user) {
+        document.getElementById("sistema").style.display = "block";
+        carregarCliente(user).then(() => {
+            carregarPedidos(user);
+            carregarOrcamentos(user);
+        });
+    } else {
+        window.location.href = "index.html";
+    }
+});
+
+async function carregarCliente(user) {
+    if (clienteIdParam) {
+        const doc = await db.collection("clientes").doc(clienteIdParam).get();
+        if (doc.exists && doc.data().usuario === user.uid) {
+            clienteAtual = { docId: doc.id, ...doc.data() };
+        }
+    }
+
+    if (!clienteAtual && nomeCliente) {
+        const id = gerarClienteId(user.uid, nomeCliente);
+        const doc = await db.collection("clientes").doc(id).get();
+        if (doc.exists && doc.data().usuario === user.uid) {
+            clienteAtual = { docId: doc.id, ...doc.data() };
+        }
+    }
+
+    const nome = clienteAtual?.nome || nomeCliente;
+    document.getElementById("clienteNome").value = nome;
+    document.getElementById("clienteTelefone").value = clienteAtual?.telefone || "";
+    document.getElementById("clienteObservacoes").value = clienteAtual?.observacoes || "";
+}
+
+async function carregarPedidos(user) {
+    pedidos = [];
+    pagamentos = [];
+    const snapshot = await db.collection("pedidos")
+        .where("usuario", "==", user.uid)
+        .get();
+
+    snapshot.forEach(doc => {
+        const pedido = doc.data();
+        if (!pedido.cliente || !pedido.produto || pedido.total <= 0) return;
+        const mesmoClienteId = clienteAtual?.docId && pedido.clienteId === clienteAtual.docId;
+        const mesmoNome = nomeCliente && pedido.cliente.toLowerCase() === nomeCliente.toLowerCase();
+        if (!mesmoClienteId && !mesmoNome) return;
+        pedido.docId = doc.id;
+        pedidos.push(pedido);
+    });
+
+    pedidos.sort((a, b) => {
+        const dataA = new Date(a.data.includes("/") ? a.data.split("/").reverse().join("-") : a.data);
+        const dataB = new Date(b.data.includes("/") ? b.data.split("/").reverse().join("-") : b.data);
+        return dataA - dataB;
+    });
+
+    try {
+        const pagamentosSnapshot = await db.collection("pagamentos").where("usuario", "==", user.uid).get();
+        pagamentosSnapshot.forEach(doc => pagamentos.push({ docId: doc.id, ...doc.data() }));
+    } catch (erro) {
+        console.warn("Não foi possível carregar pagamentos:", erro);
+    }
+
+    renderCliente();
+}
+
+function valorPagoPedido(pedido) {
+    const registros = pagamentos.filter(pagamento => pagamento.pedidoId === pedido.docId);
+    if (registros.length > 0) return registros.reduce((total, pagamento) => total + Number(pagamento.valor || 0), 0);
+    return pedido.pago === "Sim" ? Number(pedido.total || 0) : 0;
+}
+
+function saldoPedido(pedido) {
+    return Math.max(0, Number(pedido.total || 0) - valorPagoPedido(pedido));
+}
+
+async function carregarOrcamentos(user) {
+    orcamentosCliente = [];
+    const snapshot = await db.collection("orcamentos")
+        .where("usuario", "==", user.uid)
+        .get();
+
+    snapshot.forEach(doc => {
+        const o = doc.data();
+        const mesmoClienteId = clienteAtual?.docId && o.clienteId === clienteAtual.docId;
+        const mesmoNome = nomeCliente && o.cliente && o.cliente.toLowerCase() === nomeCliente.toLowerCase();
+        if (!mesmoClienteId && !mesmoNome) return;
+        o.docId = doc.id;
+        orcamentosCliente.push(o);
+    });
+
+    orcamentosCliente.sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")));
+    renderOrcamentosCliente();
+}
+
+function renderCliente() {
+    const nomeExibicao = clienteAtual?.nome || nomeCliente || "Cliente";
+    document.getElementById("nomeCliente").innerText = "👤 " + nomeExibicao;
+
+    const telefone = clienteAtual?.telefone || (pedidos.length > 0 ? pedidos[0].telefone : "");
+    document.getElementById("telefoneCliente").innerText = telefone ? "📞 " + telefone : "";
+
+    let totalGasto = 0;
+    let totalPago = 0;
+    let totalPendente = 0;
+    const tabela = document.getElementById("tabela");
+    tabela.innerHTML = "";
+
+    pedidos.forEach(p => {
+        totalGasto += Number(p.total || 0);
+        const valorPago = valorPagoPedido(p);
+        const saldo = saldoPedido(p);
+        totalPago += valorPago;
+        totalPendente += saldo;
+
+        const tr = document.createElement("tr");
+
+        if (p.status === "Aguardando") tr.style.backgroundColor = "#ffab76";
+        else if (p.status === "Imprimindo") tr.style.backgroundColor = "#fff3cd";
+        else if (p.status === "Pronto") tr.style.backgroundColor = "#d6d6d6";
+        else if (p.status === "Entregue") tr.style.backgroundColor = "#c6efce";
+
+        tr.innerHTML = `
+            <td>${formatarData(p.data)}</td>
+            <td>${p.dataPagamento ? formatarData(p.dataPagamento) : "-"}</td>
+            <td>${escaparHTML(p.produto || "-")}</td>
+            <td>${p.qtd || 0}</td>
+            <td>R$ ${Number(p.total || 0).toFixed(2)}</td>
+            <td>R$ ${valorPago.toFixed(2)}</td>
+            <td>R$ ${saldo.toFixed(2)}</td>
+            <td>${escaparHTML(p.status || "-")}</td>
+        `;
+
+        tabela.appendChild(tr);
+    });
+
+    document.getElementById("totalGasto").innerText = totalGasto.toFixed(2);
+    document.getElementById("totalPago").innerText = totalPago.toFixed(2);
+    document.getElementById("totalPendente").innerText = totalPendente.toFixed(2);
+    document.getElementById("qtdPedidos").innerText = pedidos.length;
+}
+
+function renderOrcamentosCliente() {
+    const tabela = document.getElementById("tabelaOrcamentos");
+    const m = v => Number(v || 0).toFixed(2);
+
+    if (orcamentosCliente.length === 0) {
+        tabela.innerHTML = "<tr><td colspan='7'>Nenhum orçamento para este cliente.</td></tr>";
+        return;
+    }
+
+    tabela.innerHTML = orcamentosCliente.map(o => `
+        <tr>
+            <td>${escaparHTML(o.data || "")}</td>
+            <td>${escaparHTML(o.projeto || "")}</td>
+            <td>${o.quantidade || 1}</td>
+            <td>R$ ${m(o.calculo?.precoSugerido)}</td>
+            <td>R$ ${m(o.calculo?.total)}</td>
+            <td>${escaparHTML(o.status || "")}</td>
+            <td><a href="orcamentos.html" style="color:#0f243e;font-weight:bold;">Ver em Orçamentos</a></td>
+        </tr>
+    `).join("");
+}
+
+function novoPedidoCliente() {
+    const nome = document.getElementById("clienteNome").value.trim() || clienteAtual?.nome || nomeCliente;
+    const telefone = document.getElementById("clienteTelefone").value.trim() || (pedidos.length > 0 ? pedidos[0].telefone || "" : "");
+    const destino = `index.html?aba=producao&cliente=${encodeURIComponent(nome)}&telefone=${encodeURIComponent(telefone)}`;
+    window.location.href = destino;
+}
+
+async function salvarCliente() {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const nome = document.getElementById("clienteNome").value.trim();
+    const telefone = document.getElementById("clienteTelefone").value.trim().replace(/\D/g, "");
+    const observacoes = document.getElementById("clienteObservacoes").value.trim();
+
+    if (!nome) {
+        alert("Informe o nome do cliente.");
+        return;
+    }
+
+    const clienteId = clienteAtual?.docId || gerarClienteId(user.uid, nome);
+    const ref = db.collection("clientes").doc(clienteId);
+    const doc = await ref.get();
+    const dados = {
+        usuario: user.uid,
+        nome,
+        nomeBusca: normalizarTexto(nome),
+        telefone,
+        observacoes,
+        atualizadoEm: new Date()
+    };
+
+    if (doc.exists) {
+        await ref.update(dados);
+    } else {
+        await ref.set({ ...dados, criadoEm: new Date() });
+    }
+
+    clienteAtual = { docId: clienteId, ...dados };
+    alert("Cliente salvo!");
+    renderCliente();
+}
+
+function enviarCobranca() {
+    const pendentes = pedidos.filter(p => saldoPedido(p) > 0);
+
+    if (pendentes.length === 0) {
+        alert("Esse cliente não tem pedidos pendentes.");
+        return;
+    }
+
+    const telefone = clienteAtual?.telefone || pendentes[0].telefone;
+    if (!telefone) {
+        alert("Cliente sem telefone cadastrado.");
+        return;
+    }
+
+    let totalGeral = 0;
+    let linhasPedidos = "";
+
+    pendentes.forEach((p, i) => {
+        const saldo = saldoPedido(p);
+        totalGeral += saldo;
+        linhasPedidos += `📦 Pedido ${i + 1}\nProduto: ${p.produto}\nTotal: R$ ${Number(p.total).toFixed(2)}\nJá pago: R$ ${valorPagoPedido(p).toFixed(2)}\nSaldo: R$ ${saldo.toFixed(2)}\n\n`;
+    });
+
+    const mensagem = encodeURIComponent(
+`📌 *Lembrete de Pagamento - LV Maker*
+
+Olá, ${clienteAtual?.nome || nomeCliente}!
+
+Segue o resumo dos pedidos pendentes:
+
+${linhasPedidos}💰 *Total Geral: R$ ${totalGeral.toFixed(2)}*
+
+Qualquer dúvida estou à disposição 🙌`
+    );
+
+    window.open(`https://wa.me/55${telefone.replace(/\D/g, "")}?text=${mensagem}`, "_blank");
+}
+
+function formatarData(data) {
+    if (!data) return "";
+    if (data.includes("/")) return data;
+    if (data.includes("-")) {
+        const partes = data.split("-");
+        return `${partes[2]}/${partes[1]}/${partes[0]}`;
+    }
+    return data;
+}
+</script>
+
+</body>
+</html>

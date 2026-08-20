@@ -1,0 +1,121 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    match /admins/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if false;
+    }
+
+    match /pedidos/{pedidoId} {
+      allow create: if signedIn()
+        && request.resource.data.usuario == request.auth.uid;
+      allow read, delete: if isOwner(resource.data.usuario);
+      allow update: if isOwner(resource.data.usuario)
+        && request.resource.data.usuario == resource.data.usuario;
+    }
+
+    match /orcamentos/{orcamentoId} {
+      allow create: if signedIn()
+        && request.resource.data.usuario == request.auth.uid;
+      allow read, delete: if isOwner(resource.data.usuario);
+      allow update: if isOwner(resource.data.usuario)
+        && request.resource.data.usuario == resource.data.usuario;
+    }
+
+    match /clientes/{clienteId} {
+      allow create: if signedIn()
+        && request.resource.data.usuario == request.auth.uid;
+      allow read, delete: if isOwner(resource.data.usuario);
+      allow update: if isOwner(resource.data.usuario)
+        && request.resource.data.usuario == resource.data.usuario;
+    }
+
+    match /despesas/{despesaId} {
+      allow create: if signedIn()
+        && request.resource.data.usuario == request.auth.uid;
+      allow read, delete: if isOwner(resource.data.usuario);
+      allow update: if isOwner(resource.data.usuario)
+        && request.resource.data.usuario == resource.data.usuario;
+    }
+
+    match /pagamentos/{pagamentoId} {
+      allow create: if signedIn()
+        && request.resource.data.usuario == request.auth.uid;
+      allow read, delete: if isOwner(resource.data.usuario);
+      allow update: if isOwner(resource.data.usuario)
+        && request.resource.data.usuario == resource.data.usuario;
+    }
+
+    match /pedidosCatalogo/{pedidoCatalogoId} {
+      // Pedidos do catálogo são públicos. Por isso, só aceitamos exatamente
+      // o formato criado pelo catálogo e nunca permitimos leitura/alteração
+      // por visitantes.
+      allow create: if request.resource.data.keys().hasOnly([
+          'cliente', 'telefone', 'observacao', 'itens', 'total', 'status',
+          'origem', 'criadoEm'
+        ])
+        && request.resource.data.keys().hasAll([
+          'cliente', 'telefone', 'observacao', 'itens', 'total', 'status',
+          'origem', 'criadoEm'
+        ])
+        && request.resource.data.cliente is string
+        && request.resource.data.cliente.size() >= 2
+        && request.resource.data.cliente.size() <= 100
+        && request.resource.data.telefone is string
+        && request.resource.data.telefone.matches('^[0-9]{10,13}$')
+        && request.resource.data.observacao is string
+        && request.resource.data.observacao.size() <= 500
+        && request.resource.data.itens is list
+        && request.resource.data.itens.size() >= 1
+        && request.resource.data.itens.size() <= 20
+        && request.resource.data.total is number
+        && request.resource.data.total > 0
+        && request.resource.data.total <= 100000
+        && request.resource.data.status == "novo"
+        && request.resource.data.origem == "catalogo"
+        && request.resource.data.criadoEm is timestamp;
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /produtos/{produtoId} {
+      allow read: if resource.data.ativo == true || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /categorias/{categoriaId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /configuracoes/banner {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /configuracoes/orcamento {
+      allow read, write: if isAdmin();
+    }
+
+    match /configuracoes/{configId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

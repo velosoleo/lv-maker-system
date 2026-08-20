@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LV Maker PRO - Orçamentos</title>
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f243e">
+<style>
+.orcamento-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin: 12px 0;
+}
+.orcamento-grid > div label {
+    font-size: 12px;
+    color: #555;
+    display: block;
+    margin-bottom: 3px;
+}
+.orcamento-grid input, .orcamento-grid select {
+    width: 100%;
+    margin: 0;
+}
+.tempo-duplo {
+    display: flex;
+    gap: 6px;
+}
+.tempo-duplo input { flex: 1; margin: 0; }
+.orcamento-resumo {
+    margin-top: 16px;
+    padding: 12px;
+    background: #f4f6f9;
+    border-radius: 10px;
+}
+.detalhe-custos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 10px 0;
+    font-size: 13px;
+    color: #555;
+}
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin: 12px 0;
+}
+.config-grid > div label {
+    font-size: 12px;
+    color: #555;
+    display: block;
+    margin-bottom: 3px;
+}
+.config-grid input { width: 100%; margin: 0; }
+.lista-itens {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+.item-tag {
+    background: #0f243e;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.item-tag button {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 13px;
+    padding: 0;
+}
+.secao-toggle {
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.secao-conteudo { display: none; margin-top: 12px; }
+.secao-conteudo.aberto { display: block; }
+</style>
+</head>
+
+<body>
+<div id="sistema" style="display:none;">
+
+<h1>📦 LV Maker PRO</h1>
+
+<nav>
+    <a href="index.html">📋 Pedidos</a>
+    <a href="financeiro.html">📊 Financeiro</a>
+    <a href="produtos.html">🛍️ Produtos</a>
+    <a href="orcamentos.html" class="ativo">🧮 Orçamentos</a>
+</nav>
+
+<!-- CONFIGURAÇÕES -->
+<div class="card">
+    <div class="secao-toggle" onclick="toggleSecao('configConteudo', this)">
+        <h3>⚙️ Configurações</h3>
+        <span>▼</span>
+    </div>
+    <div class="secao-conteudo" id="configConteudo">
+
+        <h4 style="margin-bottom:8px;">Parâmetros de custo</h4>
+        <div class="config-grid">
+            <div><label>Energia (R$/kWh)</label><input id="cfgEnergia" type="number" step="0.01" placeholder="0.75"></div>
+            <div><label>Trabalho (R$/h)</label><input id="cfgTrabalho" type="number" step="0.01" placeholder="10"></div>
+            <div><label>Taxa de falha (%)</label><input id="cfgFalha" type="number" step="0.1" placeholder="10"></div>
+            <div><label>Taxa marketplace (%)</label><input id="cfgMarketplace" type="number" step="0.1" placeholder="20"></div>
+            <div><label>Imposto (%)</label><input id="cfgImposto" type="number" step="0.1" placeholder="5.5"></div>
+            <div><label>Taxa fixa (R$)</label><input id="cfgTaxaFixa" type="number" step="0.01" placeholder="4"></div>
+        </div>
+        <button onclick="salvarParametros()">Salvar Parâmetros</button>
+
+        <hr style="margin:16px 0;">
+
+        <h4 style="margin-bottom:8px;">Filamentos</h4>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+            <div><label style="font-size:12px;color:#555;">Nome</label><input id="nomeFilamento" placeholder="Ex: PLA Genérico" style="width:160px;"></div>
+            <div><label style="font-size:12px;color:#555;">Preço por kg (R$)</label><input id="precoFilamento" type="number" step="0.01" placeholder="89" style="width:120px;"></div>
+            <button onclick="adicionarFilamento()">Adicionar</button>
+        </div>
+        <div class="lista-itens" id="listaFilamentos"></div>
+
+        <hr style="margin:16px 0;">
+
+        <h4 style="margin-bottom:8px;">Impressoras</h4>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+            <div><label style="font-size:12px;color:#555;">Nome</label><input id="nomeImpressora" placeholder="Ex: Bambu A1" style="width:140px;"></div>
+            <div><label style="font-size:12px;color:#555;">Consumo (kWh/h)</label><input id="consumoImpressora" type="number" step="0.001" placeholder="0.015" style="width:130px;"></div>
+            <div><label style="font-size:12px;color:#555;">Depreciação (R$/h)</label><input id="depreciacaoImpressora" type="number" step="0.01" placeholder="0.66" style="width:140px;"></div>
+            <button onclick="adicionarImpressora()">Adicionar</button>
+        </div>
+        <div class="lista-itens" id="listaImpressoras"></div>
+
+    </div>
+</div>
+
+<!-- NOVO ORÇAMENTO -->
+<div class="card">
+    <h3>🧮 Novo Orçamento</h3>
+    <div class="orcamento-grid">
+        <div><label>Identificação opcional</label><input id="cliente" placeholder="Ex: genérico ou nome do cliente"></div>
+        <div><label>Telefone opcional</label><input id="telefone" placeholder="Com DDD"></div>
+        <div><label>Projeto</label><input id="projeto" placeholder="Ex: Chaveiro personalizado"></div>
+        <div><label>Quantidade</label><input id="quantidade" type="number" min="1" value="1" oninput="calcular()"></div>
+        <div>
+            <label>Impressora</label>
+            <select id="impressora" onchange="calcular()"></select>
+        </div>
+        <div>
+            <label>Filamento</label>
+            <select id="filamento" onchange="calcular()"></select>
+        </div>
+        <div><label>Gramatura (g)</label><input id="gramatura" type="number" step="0.01" placeholder="Gramas do fatiador" oninput="calcular()"></div>
+        <div>
+            <label>Tempo de impressão</label>
+            <div class="tempo-duplo">
+                <input id="tempoHoras" type="number" min="0" placeholder="Horas" oninput="calcular()">
+                <input id="tempoMinutos" type="number" min="0" max="59" placeholder="Min" oninput="calcular()">
+            </div>
+        </div>
+        <div>
+            <label>Tempo de trabalho</label>
+            <div class="tempo-duplo">
+                <input id="trabalhoHoras" type="number" min="0" placeholder="Horas" oninput="calcular()">
+                <input id="trabalhoMinutos" type="number" min="0" max="59" placeholder="Min" oninput="calcular()">
+            </div>
+        </div>
+        <div><label>Insumos extras (R$)</label><input id="insumos" type="number" step="0.01" value="0" oninput="calcular()"></div>
+        <div>
+            <label>Embalagem</label>
+            <select id="embalagemTipo" onchange="aplicarEmbalagem(); calcular();">
+                <option value="0">Sem embalagem</option>
+                <option value="5.98">Pequena - R$ 5,98</option>
+                <option value="8.60">Grande - R$ 8,60</option>
+                <option value="custom">Personalizada</option>
+            </select>
+        </div>
+        <div><label>Valor embalagem (R$)</label><input id="embalagem" type="number" step="0.01" value="0" oninput="calcular()"></div>
+        <div><label>Markup</label><input id="markup" type="number" step="0.1" value="2" oninput="calcular()"></div>
+        <div>
+            <label>Status</label>
+            <select id="status">
+                <option>Orçado</option>
+                <option>Enviado</option>
+                <option>Aprovado</option>
+                <option>Recusado</option>
+            </select>
+        </div>
+        <div>
+            <label>
+                <input id="salvarComoCliente" type="checkbox" style="width:auto;margin-right:6px;">
+                Salvar também como cliente
+            </label>
+        </div>
+    </div>
+
+    <div class="orcamento-resumo dashboard">
+        <div class="box"><strong>Custo unitário</strong><p>R$ <span id="custoUnitario">0.00</span></p></div>
+        <div class="box"><strong>Preço sugerido</strong><p>R$ <span id="precoSugerido">0.00</span></p></div>
+        <div class="box"><strong>Marketplace</strong><p>R$ <span id="precoMarketplace">0.00</span></p></div>
+        <div class="box"><strong>Total</strong><p>R$ <span id="precoTotal">0.00</span></p></div>
+    </div>
+
+    <div class="detalhe-custos">
+        <span>Filamento: R$ <strong id="dFilamento">0.00</strong></span>
+        <span>Energia: R$ <strong id="dEnergia">0.00</strong></span>
+        <span>Impressora: R$ <strong id="dImpressora">0.00</strong></span>
+        <span>Trabalho: R$ <strong id="dTrabalho">0.00</strong></span>
+        <span>Extras: R$ <strong id="dExtras">0.00</strong></span>
+    </div>
+
+    <button onclick="salvarOrcamento()" id="btnSalvarOrcamento">Salvar Orçamento</button>
+    <button onclick="limparCampos()" id="btnCancelar" style="display:none;background:#888;">Cancelar Edição</button>
+    <p id="statusOrcamento" style="color:#555;margin:8px 5px;"></p>
+</div>
+
+<!-- LISTA DE ORÇAMENTOS -->
+<div class="card">
+    <h3>📋 Orçamentos Salvos</h3>
+    <input id="busca" placeholder="Buscar por cliente ou projeto..." oninput="renderOrcamentos()" style="margin-bottom:8px;">
+    <select id="filtroStatus" onchange="renderOrcamentos()">
+        <option value="">Todos os status</option>
+        <option>Orçado</option>
+        <option>Enviado</option>
+        <option>Aprovado</option>
+        <option>Recusado</option>
+    </select>
+    <button onclick="exportarCSV()">Exportar CSV</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Data</th>
+                <th>Cliente</th>
+                <th>Projeto</th>
+                <th>Qtd</th>
+                <th>Custo Unit.</th>
+                <th>Sugerido</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Ação</th>
+            </tr>
+        </thead>
+        <tbody id="tabelaOrcamentos"></tbody>
+    </table>
+</div>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+    apiKey: "AIzaSyASqz8XoAhyD6w-klOr4HXlj_4URkQlBU8",
+    authDomain: "lv-maker.firebaseapp.com",
+    projectId: "lv-maker",
+    storageBucket: "lv-maker.firebasestorage.app",
+    messagingSenderId: "216355482221",
+    appId: "1:216355482221:web:5c3806b990538fa7dc6d64"
+};
+
+firebase.initializeApp(firebaseConfig);
+firebase.appCheck().activate(
+    new firebase.appCheck.ReCaptchaEnterpriseProvider("6LcX5IItAAAAAMMojs5eGD6mDUWpnFozv-P_xmC_"),
+    true
+);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+let orcamentos = [];
+let orcamentoEditando = null;
+let calculoAtual = {};
+
+let PARAMS = {
+    energia: 0.75,
+    trabalho: 10,
+    falha: 10,
+    marketplace: 0.20,
+    imposto: 0.055,
+    taxaFixa: 4
+};
+
+let FILAMENTOS = [
+    { id: "f1", nome: "Voolt3D PLA", preco: 89 },
+    { id: "f2", nome: "GeneTEch", preco: 99.99 },
+    { id: "f3", nome: "volt 3d", preco: 119.90 },
+    { id: "f4", nome: "Bambu Lite", preco: 99 },
+    { id: "f5", nome: "eSUN Matte", preco: 135 },
+    { id: "f6", nome: "Polyterra", preco: 145 },
+    { id: "f7", nome: "Bambu TPU AMS", preco: 175 },
+    { id: "f8", nome: "Creality PLA", preco: 105 },
+    { id: "f9", nome: "3nmax", preco: 100 },
+    { id: "f10", nome: "Outro", preco: 75 }
+];
+
+let IMPRESSORAS = [
+    { id: "i1", nome: "BambuLab A1 mini", consumo: 0.015, depreciacao: 0.66 },
+    { id: "i2", nome: "Bambulab A1", consumo: 0.15, depreciacao: 0.58 },
+    { id: "i3", nome: "H2D", consumo: 0.30, depreciacao: 1.00 }
+];
+
+function escaparHTML(valor) {
+    return String(valor ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+function normalizarTexto(valor) {
+    return String(valor || "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+}
+
+function gerarClienteId(userId, nome) {
+    const slug = normalizarTexto(nome) || "cliente";
+    return `${userId}_${slug}`.slice(0, 120);
+}
+
+async function salvarCadastroCliente(user, nome, telefone) {
+    const clienteId = gerarClienteId(user.uid, nome);
+    const ref = db.collection("clientes").doc(clienteId);
+    const agora = new Date();
+    const atual = await ref.get();
+    const dados = {
+        usuario: user.uid,
+        nome,
+        nomeBusca: normalizarTexto(nome),
+        telefone: telefone || "",
+        atualizadoEm: agora
+    };
+
+    if (atual.exists) {
+        await ref.update(dados);
+    } else {
+        await ref.set({
+            ...dados,
+            observacoes: "",
+            criadoEm: agora
+        });
+    }
+
+    return clienteId;
+}
+
+auth.onAuthStateChanged(user => {
+    if (user) {
+        document.getElementById("sistema").style.display = "block";
+        carregarConfiguracoes().then(() => {
+            preencherSelects();
+            calcular();
+            carregarOrcamentos();
+        });
+    } else {
+        window.location.href = "index.html";
+    }
+});
+
+async function carregarConfiguracoes() {
+    try {
+        const doc = await db.collection("configuracoes").doc("orcamento").get();
+        if (doc.exists) {
+            const d = doc.data();
+            if (d.params) PARAMS = { ...PARAMS, ...d.params };
+            if (d.filamentos && d.filamentos.length > 0) FILAMENTOS = d.filamentos;
+            if (d.impressoras && d.impressoras.length > 0) IMPRESSORAS = d.impressoras;
+        }
+    } catch(e) {}
+
+    document.getElementById("cfgEnergia").value = PARAMS.energia;
+    document.getElementById("cfgTrabalho").value = PARAMS.trabalho;
+    document.getElementById("cfgFalha").value = PARAMS.falha;
+    document.getElementById("cfgMarketplace").value = PARAMS.marketplace * 100;
+    document.getElementById("cfgImposto").value = PARAMS.imposto * 100;
+    document.getElementById("cfgTaxaFixa").value = PARAMS.taxaFixa;
+
+    renderFilamentos();
+    renderImpressoras();
+}
+
+async function salvarParametros() {
+    PARAMS.energia = parseFloat(document.getElementById("cfgEnergia").value) || 0.75;
+    PARAMS.trabalho = parseFloat(document.getElementById("cfgTrabalho").value) || 10;
+    PARAMS.falha = parseFloat(document.getElementById("cfgFalha").value) || 10;
+    PARAMS.marketplace = (parseFloat(document.getElementById("cfgMarketplace").value) || 20) / 100;
+    PARAMS.imposto = (parseFloat(document.getElementById("cfgImposto").value) || 5.5) / 100;
+    PARAMS.taxaFixa = parseFloat(document.getElementById("cfgTaxaFixa").value) || 4;
+
+    await salvarConfigFirebase();
+    alert("Parâmetros salvos!");
+    calcular();
+}
+
+async function salvarConfigFirebase() {
+    await db.collection("configuracoes").doc("orcamento").set({
+        params: PARAMS,
+        filamentos: FILAMENTOS,
+        impressoras: IMPRESSORAS
+    });
+}
+
+function renderFilamentos() {
+    const lista = document.getElementById("listaFilamentos");
+    lista.innerHTML = "";
+    FILAMENTOS.forEach(f => {
+        const span = document.createElement("span");
+        span.className = "item-tag";
+        span.innerHTML = `${escaparHTML(f.nome)} - R$${Number(f.preco).toFixed(2)}/kg <button onclick="excluirFilamento('${f.id}')">✕</button>`;
+        lista.appendChild(span);
+    });
+    preencherSelects();
+}
+
+async function adicionarFilamento() {
+    const nome = document.getElementById("nomeFilamento").value.trim();
+    const preco = parseFloat(document.getElementById("precoFilamento").value);
+    if (!nome || !preco) { alert("Preencha nome e preço."); return; }
+    FILAMENTOS.push({ id: "f" + Date.now(), nome, preco });
+    document.getElementById("nomeFilamento").value = "";
+    document.getElementById("precoFilamento").value = "";
+    await salvarConfigFirebase();
+    renderFilamentos();
+}
+
+async function excluirFilamento(id) {
+    FILAMENTOS = FILAMENTOS.filter(f => f.id !== id);
+    await salvarConfigFirebase();
+    renderFilamentos();
+}
+
+function renderImpressoras() {
+    const lista = document.getElementById("listaImpressoras");
+    lista.innerHTML = "";
+    IMPRESSORAS.forEach(i => {
+        const span = document.createElement("span");
+        span.className = "item-tag";
+        span.innerHTML = `${escaparHTML(i.nome)} (${i.consumo}kWh/h, R$${i.depreciacao}/h) <button onclick="excluirImpressora('${i.id}')">✕</button>`;
+        lista.appendChild(span);
+    });
+    preencherSelects();
+}
+
+async function adicionarImpressora() {
+    const nome = document.getElementById("nomeImpressora").value.trim();
+    const consumo = parseFloat(document.getElementById("consumoImpressora").value);
+    const depreciacao = parseFloat(document.getElementById("depreciacaoImpressora").value);
+    if (!nome || !consumo || !depreciacao) { alert("Preencha todos os campos da impressora."); return; }
+    IMPRESSORAS.push({ id: "i" + Date.now(), nome, consumo, depreciacao });
+    document.getElementById("nomeImpressora").value = "";
+    document.getElementById("consumoImpressora").value = "";
+    document.getElementById("depreciacaoImpressora").value = "";
+    await salvarConfigFirebase();
+    renderImpressoras();
+}
+
+async function excluirImpressora(id) {
+    IMPRESSORAS = IMPRESSORAS.filter(i => i.id !== id);
+    await salvarConfigFirebase();
+    renderImpressoras();
+}
+
+function preencherSelects() {
+    const selImp = document.getElementById("impressora");
+    const selFil = document.getElementById("filamento");
+    const impAtual = selImp.value;
+    const filAtual = selFil.value;
+
+    selImp.innerHTML = IMPRESSORAS.map(i => `<option value="${i.id}">${escaparHTML(i.nome)}</option>`).join("");
+    selFil.innerHTML = FILAMENTOS.map(f => `<option value="${f.id}">${escaparHTML(f.nome)} - R$ ${Number(f.preco).toFixed(2)}/kg</option>`).join("");
+
+    if (impAtual) selImp.value = impAtual;
+    if (filAtual) selFil.value = filAtual;
+}
+
+function num(id) { return parseFloat(document.getElementById(id).value) || 0; }
+function horas(hId, mId) { return num(hId) + (num(mId) / 60); }
+
+function calcular() {
+    const imp = IMPRESSORAS.find(i => i.id === document.getElementById("impressora").value) || IMPRESSORAS[0];
+    const fil = FILAMENTOS.find(f => f.id === document.getElementById("filamento").value) || FILAMENTOS[0];
+    if (!imp || !fil) return;
+
+    const gramatura = num("gramatura");
+    const tempoImp = horas("tempoHoras", "tempoMinutos");
+    const tempoTrab = horas("trabalhoHoras", "trabalhoMinutos");
+    const qtd = Math.max(1, num("quantidade") || 1);
+    const insumos = num("insumos");
+    const embalagem = num("embalagem");
+    const markup = num("markup") || 1;
+
+    const custoFilamento = (gramatura / 1000) * fil.preco;
+    const custoEnergia = tempoImp * imp.consumo * PARAMS.energia;
+    const custoImpressora = tempoImp * imp.depreciacao;
+    const custoTrabalho = tempoTrab * PARAMS.trabalho;
+    const subtotal = custoFilamento + custoEnergia + custoImpressora + custoTrabalho + insumos + embalagem;
+    const custoComFalha = subtotal * (1 + PARAMS.falha / 100);
+    const precoSugerido = custoComFalha * markup;
+    const precoMarketplace = (precoSugerido / (1 - PARAMS.marketplace - PARAMS.imposto)) + PARAMS.taxaFixa;
+    const total = precoSugerido * qtd;
+
+    calculoAtual = { custoFilamento, custoEnergia, custoImpressora, custoTrabalho, insumos, embalagem, subtotal, custoUnitario: custoComFalha, precoSugerido, precoMarketplace, total };
+
+    const m = v => Number(v || 0).toFixed(2);
+    document.getElementById("dFilamento").innerText = m(custoFilamento);
+    document.getElementById("dEnergia").innerText = m(custoEnergia);
+    document.getElementById("dImpressora").innerText = m(custoImpressora);
+    document.getElementById("dTrabalho").innerText = m(custoTrabalho);
+    document.getElementById("dExtras").innerText = m(insumos + embalagem);
+    document.getElementById("custoUnitario").innerText = m(custoComFalha);
+    document.getElementById("precoSugerido").innerText = m(precoSugerido);
+    document.getElementById("precoMarketplace").innerText = m(precoMarketplace);
+    document.getElementById("precoTotal").innerText = m(total);
+}
+
+function aplicarEmbalagem() {
+    const tipo = document.getElementById("embalagemTipo").value;
+    if (tipo !== "custom") document.getElementById("embalagem").value = tipo;
+}
+
+async function carregarOrcamentos() {
+    const user = auth.currentUser;
+    orcamentos = [];
+    const snapshot = await db.collection("orcamentos").where("usuario", "==", user.uid).get();
+    snapshot.forEach(doc => orcamentos.push({ docId: doc.id, ...doc.data() }));
+    orcamentos.sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")));
+    renderOrcamentos();
+}
+
+async function salvarOrcamento() {
+    const statusEl = document.getElementById("statusOrcamento");
+    const btnSalvar = document.getElementById("btnSalvarOrcamento");
+    const user = auth.currentUser;
+    if (!user) { alert("Faça login primeiro."); return; }
+
+    try {
+        btnSalvar.disabled = true;
+        statusEl.innerText = "Salvando orçamento...";
+
+        calcular();
+
+        const clienteInformado = document.getElementById("cliente").value.trim();
+        const cliente = clienteInformado || "Orçamento avulso";
+        const projeto = document.getElementById("projeto").value.trim();
+        const qtd = Math.max(1, num("quantidade") || 1);
+        const salvarComoCliente = document.getElementById("salvarComoCliente").checked;
+
+        if (!projeto) {
+            alert("Preencha pelo menos o projeto.");
+            statusEl.innerText = "";
+            return;
+        }
+
+        const imp = IMPRESSORAS.find(i => i.id === document.getElementById("impressora").value);
+        const fil = FILAMENTOS.find(f => f.id === document.getElementById("filamento").value);
+        const telefone = document.getElementById("telefone").value.trim().replace(/\D/g, "");
+
+        const dados = {
+            usuario: user.uid,
+            data: new Date().toISOString().slice(0, 10),
+            cliente,
+            clienteId: "",
+            telefone,
+            projeto,
+            quantidade: qtd,
+            impressoraNome: imp ? imp.nome : "",
+            filamentoNome: fil ? fil.nome : "",
+            gramatura: num("gramatura"),
+            tempoHoras: num("tempoHoras"),
+            tempoMinutos: num("tempoMinutos"),
+            trabalhoHoras: num("trabalhoHoras"),
+            trabalhoMinutos: num("trabalhoMinutos"),
+            insumos: num("insumos"),
+            embalagem: num("embalagem"),
+            markup: num("markup"),
+            status: document.getElementById("status").value,
+            tipo: "avulso",
+            calculo: calculoAtual
+        };
+
+        let orcamentoRef = null;
+        if (orcamentoEditando) {
+            orcamentoRef = db.collection("orcamentos").doc(orcamentoEditando);
+            try {
+                await orcamentoRef.update(dados);
+            } catch (erroEdicao) {
+                console.warn("Não foi possível atualizar orçamento existente. Salvando como novo:", erroEdicao);
+                orcamentoRef = await db.collection("orcamentos").add({
+                    criadoEm: new Date(),
+                    ...dados
+                });
+            }
+        } else {
+            orcamentoRef = await db.collection("orcamentos").add({
+                criadoEm: new Date(),
+                ...dados
+            });
+        }
+
+        if (salvarComoCliente && clienteInformado) {
+            try {
+                const clienteId = await salvarCadastroCliente(user, cliente, telefone);
+                await orcamentoRef.update({ clienteId, tipo: "cliente" });
+            } catch (erroCliente) {
+                console.warn("Orçamento salvo, mas não foi possível cadastrar/vincular cliente:", erroCliente);
+                statusEl.innerText = "Orçamento salvo sem vincular ao cadastro de cliente.";
+            }
+        }
+
+        orcamentoEditando = null;
+        statusEl.innerText = "Orçamento salvo.";
+        alert("Orçamento salvo!");
+        limparCampos();
+        carregarOrcamentos();
+    } catch(e) {
+        console.error(e);
+        alert(`Erro ao salvar orçamento: ${e.code || ""} ${e.message || e}`);
+        statusEl.innerText = "Erro ao salvar orçamento.";
+    } finally {
+        btnSalvar.disabled = false;
+    }
+}
+
+function limparCampos() {
+    ["cliente","telefone","projeto","gramatura","tempoHoras","tempoMinutos","trabalhoHoras","trabalhoMinutos"].forEach(id => {
+        document.getElementById(id).value = "";
+    });
+    document.getElementById("quantidade").value = 1;
+    document.getElementById("insumos").value = 0;
+    document.getElementById("embalagemTipo").value = "0";
+    document.getElementById("embalagem").value = 0;
+    document.getElementById("markup").value = 2;
+    document.getElementById("status").value = "Orçado";
+    document.getElementById("salvarComoCliente").checked = false;
+    document.getElementById("statusOrcamento").innerText = "";
+    document.getElementById("btnCancelar").style.display = "none";
+    orcamentoEditando = null;
+    calcular();
+}
+
+function renderOrcamentos() {
+    const tabela = document.getElementById("tabelaOrcamentos");
+    const busca = document.getElementById("busca").value.toLowerCase();
+    const filtro = document.getElementById("filtroStatus").value;
+    const m = v => Number(v || 0).toFixed(2);
+
+    const lista = orcamentos.filter(o => {
+        const txt = `${o.cliente || ""} ${o.projeto || ""}`.toLowerCase();
+        if (busca && !txt.includes(busca)) return false;
+        if (filtro && o.status !== filtro) return false;
+        return true;
+    });
+
+    if (lista.length === 0) {
+        tabela.innerHTML = "<tr><td colspan='9'>Nenhum orçamento encontrado.</td></tr>";
+        return;
+    }
+
+    tabela.innerHTML = lista.map(o => `
+        <tr>
+            <td>${escaparHTML(o.data || "")}</td>
+            <td>${escaparHTML(o.cliente || "")}</td>
+            <td>${escaparHTML(o.projeto || "")}</td>
+            <td>${o.quantidade || 1}</td>
+            <td>R$ ${m(o.calculo?.custoUnitario)}</td>
+            <td>R$ ${m(o.calculo?.precoSugerido)}</td>
+            <td>R$ ${m(o.calculo?.total)}</td>
+            <td>${escaparHTML(o.status || "")}</td>
+            <td>
+                <button onclick="editarOrcamento('${o.docId}')">Editar</button>
+                <button onclick="enviarOrcamentoWhatsApp('${o.docId}')">📲 WhatsApp</button>
+                <button onclick="virarPedido('${o.docId}')">→ Virar pedido</button>
+                <button onclick="excluirOrcamento('${o.docId}')" style="background:#b00020;">Excluir</button>
+            </td>
+        </tr>
+    `).join("");
+}
+
+function editarOrcamento(id) {
+    const o = orcamentos.find(x => x.docId === id);
+    if (!o) return;
+
+    document.getElementById("cliente").value = o.cliente || "";
+    document.getElementById("telefone").value = o.telefone || "";
+    document.getElementById("projeto").value = o.projeto || "";
+    document.getElementById("quantidade").value = o.quantidade || 1;
+    document.getElementById("gramatura").value = o.gramatura || "";
+    document.getElementById("tempoHoras").value = o.tempoHoras || "";
+    document.getElementById("tempoMinutos").value = o.tempoMinutos || "";
+    document.getElementById("trabalhoHoras").value = o.trabalhoHoras || "";
+    document.getElementById("trabalhoMinutos").value = o.trabalhoMinutos || "";
+    document.getElementById("insumos").value = o.insumos || 0;
+    document.getElementById("embalagemTipo").value = "custom";
+    document.getElementById("embalagem").value = o.embalagem || 0;
+    document.getElementById("markup").value = o.markup || 2;
+    document.getElementById("status").value = o.status || "Orçado";
+    document.getElementById("btnCancelar").style.display = "inline-block";
+    orcamentoEditando = id;
+    calcular();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function excluirOrcamento(id) {
+    if (!confirm("Excluir este orçamento?")) return;
+    await db.collection("orcamentos").doc(id).delete();
+    carregarOrcamentos();
+}
+
+function virarPedido(id) {
+    const o = orcamentos.find(x => x.docId === id);
+    if (!o) return;
+    const m = valor => Number(valor || 0).toFixed(2);
+    const clientePedido = o.tipo === "avulso" ? "" : (o.cliente || "");
+    const params = new URLSearchParams({
+        aba: "producao",
+        cliente: clientePedido,
+        clienteId: o.clienteId || "",
+        telefone: o.telefone || "",
+        produto: o.projeto || "",
+        qtd: String(o.quantidade || 1),
+        valor: m(o.calculo?.precoSugerido),
+        custo: m(o.calculo?.custoUnitario)
+    });
+    window.location.href = `index.html?${params.toString()}`;
+}
+
+// ─── ENVIAR ORÇAMENTO POR WHATSAPP ──────────────────
+function enviarOrcamentoWhatsApp(id) {
+    const o = orcamentos.find(x => x.docId === id);
+    if (!o) return;
+    if (!o.telefone) { alert("Orçamento sem telefone cadastrado."); return; }
+
+    const m = v => Number(v || 0).toFixed(2);
+    const telefone = o.telefone.replace(/\D/g, "");
+
+    const mensagem = encodeURIComponent(
+`🧮 *Orçamento - LV Maker 3D*
+
+Olá, ${o.cliente}!
+
+Segue o orçamento solicitado:
+
+📦 Projeto: ${o.projeto}
+📊 Quantidade: ${o.quantidade || 1}
+💰 Preço unitário: R$ ${m(o.calculo?.precoSugerido)}
+💳 Total: R$ ${m(o.calculo?.total)}
+
+Este orçamento tem validade de 7 dias.
+
+Qualquer dúvida estou à disposição! 🙌`
+    );
+
+    window.open(`https://wa.me/55${telefone}?text=${mensagem}`, "_blank");
+}
+
+function exportarCSV() {
+    const m = v => Number(v || 0).toFixed(2);
+    const linhas = [["Data","Cliente","Telefone","Projeto","Qtd","Custo Unit.","Sugerido","Marketplace","Total","Status"]];
+    orcamentos.forEach(o => {
+        linhas.push([
+            o.data || "", o.cliente || "", o.telefone || "", o.projeto || "",
+            o.quantidade || 1,
+            m(o.calculo?.custoUnitario), m(o.calculo?.precoSugerido),
+            m(o.calculo?.precoMarketplace), m(o.calculo?.total),
+            o.status || ""
+        ]);
+    });
+    const csv = linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "orcamentos.csv";
+    a.click();
+}
+
+function toggleSecao(id, btn) {
+    const el = document.getElementById(id);
+    el.classList.toggle("aberto");
+    btn.querySelector("span").innerText = el.classList.contains("aberto") ? "▲" : "▼";
+}
+</script>
+
+</body>
+</html>

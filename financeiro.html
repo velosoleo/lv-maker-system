@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LV Maker PRO - Financeiro</title>
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f243e">
+</head>
+ 
+<body>
+ 
+<div id="sistema" style="display:none;">
+ 
+<h1>📊 LV Maker PRO</h1>
+ 
+<nav>
+    <a href="index.html">📋 Pedidos</a>
+    <a href="index.html?aba=producao">⚙️ Produção & Entregas</a>
+    <a href="orcamentos.html">Orçamentos</a>
+    <a href="financeiro.html" class="ativo">📊 Financeiro</a>
+    <a href="produtos.html">🛍️ Produtos</a>
+</nav>
+ 
+<div class="card">
+    <label>Período dos pedidos e despesas:</label>
+    <select id="filtroMes" onchange="atualizarFinanceiro()">
+        <option value="">Todos</option>
+        <option value="01">Janeiro</option>
+        <option value="02">Fevereiro</option>
+        <option value="03">Março</option>
+        <option value="04">Abril</option>
+        <option value="05">Maio</option>
+        <option value="06">Junho</option>
+        <option value="07">Julho</option>
+        <option value="08">Agosto</option>
+        <option value="09">Setembro</option>
+        <option value="10">Outubro</option>
+        <option value="11">Novembro</option>
+        <option value="12">Dezembro</option>
+    </select>
+    <select id="filtroAno" onchange="atualizarFinanceiro()">
+        <option value="">Todos os anos</option>
+    </select>
+    <button onclick="auth.signOut()">Sair</button>
+</div>
+ 
+<div class="card">
+    <h3>📊 Dashboard</h3>
+    <div class="dashboard">
+        <div class="box">
+            <strong>Faturamento previsto</strong>
+            <p>R$ <span id="totalVendas">0.00</span></p>
+        </div>
+        <div class="box">
+            <strong>Recebido</strong>
+            <p>R$ <span id="totalRecebido">0.00</span></p>
+        </div>
+        <div class="box">
+            <strong>Despesas</strong>
+            <p>R$ <span id="totalDespesas">0.00</span></p>
+        </div>
+        <div class="box box-clicavel" onclick="togglePendentes()">
+            <strong>Pendentes</strong>
+            <p>R$ <span id="totalPendente">0.00</span></p>
+            <small>Clique para ver clientes</small>
+        </div>
+        <div class="box">
+            <strong>Lucro previsto</strong>
+            <p>R$ <span id="totalLucroPrevisto">0.00</span></p>
+        </div>
+        <div class="box">
+            <strong>Resultado realizado</strong>
+            <p>R$ <span id="totalLucroRealizado">0.00</span></p>
+        </div>
+        <div class="box">
+            <strong>Pedidos</strong>
+            <p><span id="qtdPedidos">0</span></p>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h3>👤 Consulta financeira por cliente</h3>
+    <input id="buscaClienteFinanceiro" list="clientesFinanceiros" placeholder="Digite ou selecione o cliente" oninput="renderResumoCliente()">
+    <datalist id="clientesFinanceiros"></datalist>
+    <small>O resumo considera o período selecionado acima.</small>
+    <div id="resumoClienteFinanceiro"></div>
+</div>
+
+<div class="card">
+    <h3>➖ Registrar despesa</h3>
+    <input id="dataDespesa" type="date" aria-label="Data da despesa">
+    <input id="descricaoDespesa" placeholder="Descrição (ex.: filamento, embalagem)">
+    <input id="categoriaDespesa" placeholder="Categoria (opcional)">
+    <input id="valorDespesa" type="number" min="0" step="0.01" placeholder="Valor">
+    <button onclick="salvarDespesa()">Salvar despesa</button>
+    <div id="listaDespesas"></div>
+</div>
+
+<div class="card" id="cardPendentes" style="display:none;">
+    <h3>💰 Clientes com Pagamento Pendente</h3>
+    <div id="listaPendentes"></div>
+</div>
+ 
+<div class="card">
+    <h3>📈 Faturamento, Lucro e Despesas por Mês</h3>
+    <canvas id="grafico" height="120"></canvas>
+</div>
+ 
+</div>
+ 
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+ 
+<script>
+const firebaseConfig = {
+    apiKey: "AIzaSyASqz8XoAhyD6w-klOr4HXlj_4URkQlBU8",
+    authDomain: "lv-maker.firebaseapp.com",
+    projectId: "lv-maker",
+    storageBucket: "lv-maker.firebasestorage.app",
+    messagingSenderId: "216355482221",
+    appId: "1:216355482221:web:5c3806b990538fa7dc6d64"
+};
+ 
+firebase.initializeApp(firebaseConfig);
+firebase.appCheck().activate(
+    new firebase.appCheck.ReCaptchaEnterpriseProvider("6LcX5IItAAAAAMMojs5eGD6mDUWpnFozv-P_xmC_"),
+    true
+);
+const db = firebase.firestore();
+const auth = firebase.auth();
+ 
+let pedidos = [];
+let pagamentos = [];
+let despesas = [];
+let graficoInstance = null;
+let mostrarPendentes = false;
+let clientesPendentesRenderizados = [];
+
+function escaparHTML(valor) {
+    return String(valor ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+ 
+auth.onAuthStateChanged(user => {
+    if (user) {
+        document.getElementById("sistema").style.display = "block";
+        carregarDados();
+    } else {
+        window.location.href = "index.html";
+    }
+});
+ 
+async function carregarDados() {
+    const user = auth.currentUser;
+    pedidos = [];
+    pagamentos = [];
+    despesas = [];
+    const pedidosSnapshot = await db.collection("pedidos").where("usuario", "==", user.uid).get();
+    let despesasSnapshot = null;
+    try {
+        despesasSnapshot = await db.collection("despesas").where("usuario", "==", user.uid).get();
+    } catch (erro) {
+        console.warn("Não foi possível carregar despesas:", erro);
+    }
+    try {
+        const pagamentosSnapshot = await db.collection("pagamentos").where("usuario", "==", user.uid).get();
+        pagamentosSnapshot.forEach(doc => pagamentos.push({ docId: doc.id, ...doc.data() }));
+    } catch (erro) {
+        console.warn("Não foi possível carregar pagamentos:", erro);
+    }
+    pedidosSnapshot.forEach(doc => {
+        const pedido = doc.data();
+        if (!pedido.cliente || !pedido.produto || pedido.total <= 0) return;
+        pedido.docId = doc.id;
+        pedidos.push(pedido);
+    });
+    despesasSnapshot?.forEach(doc => despesas.push({ docId: doc.id, ...doc.data() }));
+    preencherFiltroAnos();
+    atualizarFinanceiro();
+}
+ 
+function getMes(item) {
+    const dataRef = item.data || item.dataDespesa;
+    if (!dataRef) return null;
+    if (dataRef.includes("-")) return dataRef.slice(0, 7);
+    if (dataRef.includes("/")) {
+        const partes = dataRef.split("/");
+        return `${partes[2]}-${partes[1]}`;
+    }
+    return null;
+}
+
+function itensNoPeriodo(itens) {
+    const mesSelecionado = document.getElementById("filtroMes").value;
+    const anoSelecionado = document.getElementById("filtroAno").value;
+    return itens.filter(item => {
+        const anoMes = getMes(item);
+        if (!anoMes) return !mesSelecionado && !anoSelecionado;
+        const [ano, mes] = anoMes.split("-");
+        return (!mesSelecionado || mes === mesSelecionado)
+            && (!anoSelecionado || ano === anoSelecionado);
+    });
+}
+
+function pedidosNoPeriodo() {
+    return itensNoPeriodo(pedidos);
+}
+
+function valorPagoPedido(pedido) {
+    const registros = pagamentos.filter(pagamento => pagamento.pedidoId === pedido.docId);
+    if (registros.length > 0) return registros.reduce((total, pagamento) => total + Number(pagamento.valor || 0), 0);
+    return pedido.pago === "Sim" ? Number(pedido.total || 0) : 0;
+}
+
+function saldoPedido(pedido) {
+    return Math.max(0, Number(pedido.total || 0) - valorPagoPedido(pedido));
+}
+
+function despesasNoPeriodo() {
+    return itensNoPeriodo(despesas);
+}
+
+function preencherFiltroAnos() {
+    const filtro = document.getElementById("filtroAno");
+    const anoAtual = filtro.value;
+    const anos = new Set([...pedidos, ...despesas]
+        .map(item => getMes(item)?.slice(0, 4))
+        .filter(Boolean));
+    filtro.innerHTML = '<option value="">Todos os anos</option>'
+        + [...anos].sort().reverse().map(ano => `<option value="${ano}">${ano}</option>`).join("");
+    filtro.value = anos.has(anoAtual) ? anoAtual : "";
+}
+
+function atualizarFinanceiro() {
+    calcularDashboard();
+    renderPendentes();
+    renderDespesas();
+    preencherClientesFinanceiros();
+    renderResumoCliente();
+    gerarGrafico();
+}
+ 
+function calcularDashboard() {
+    let totalVendas = 0;
+    let lucroPrevistoBruto = 0;
+    let lucroRealizadoBruto = 0;
+    let totalPendente = 0;
+    let totalRecebido = 0;
+    let qtdPedidos = 0;
+ 
+    pedidosNoPeriodo().forEach(p => {
+        totalVendas += Number(p.total || 0);
+        lucroPrevistoBruto += Number(p.lucro || 0);
+        qtdPedidos++;
+ 
+        const valorPago = valorPagoPedido(p);
+        const proporcaoRecebida = Number(p.total || 0) > 0 ? valorPago / Number(p.total) : 0;
+        totalRecebido += valorPago;
+        totalPendente += saldoPedido(p);
+        lucroRealizadoBruto += Number(p.lucro || 0) * proporcaoRecebida;
+    });
+
+    const totalDespesas = despesasNoPeriodo()
+        .reduce((total, despesa) => total + Number(despesa.valor || 0), 0);
+ 
+    document.getElementById("totalVendas").innerText = totalVendas.toFixed(2);
+    document.getElementById("totalRecebido").innerText = totalRecebido.toFixed(2);
+    document.getElementById("totalDespesas").innerText = totalDespesas.toFixed(2);
+    document.getElementById("totalPendente").innerText = totalPendente.toFixed(2);
+    document.getElementById("totalLucroPrevisto").innerText = (lucroPrevistoBruto - totalDespesas).toFixed(2);
+    document.getElementById("totalLucroRealizado").innerText = (lucroRealizadoBruto - totalDespesas).toFixed(2);
+    document.getElementById("qtdPedidos").innerText = qtdPedidos;
+}
+
+function togglePendentes() {
+    mostrarPendentes = !mostrarPendentes;
+    renderPendentes();
+}
+
+function abrirCliente(nome) {
+    if (!nome) return;
+    window.location.href = `cliente.html?nome=${encodeURIComponent(nome)}`;
+}
+
+function abrirClientePendente(indice) {
+    const cliente = clientesPendentesRenderizados[indice];
+    if (!cliente) return;
+    if (cliente.clienteId) {
+        window.location.href = `cliente.html?id=${encodeURIComponent(cliente.clienteId)}&nome=${encodeURIComponent(cliente.cliente)}`;
+        return;
+    }
+    abrirCliente(cliente.cliente);
+}
+
+function renderPendentes() {
+    const card = document.getElementById("cardPendentes");
+    const lista = document.getElementById("listaPendentes");
+
+    if (!mostrarPendentes) {
+        card.style.display = "none";
+        return;
+    }
+
+    card.style.display = "block";
+    const pendentes = pedidosNoPeriodo().filter(p => saldoPedido(p) > 0);
+
+    if (pendentes.length === 0) {
+        lista.innerHTML = "<p style='color:#777;'>Nenhum pagamento pendente nesse filtro.</p>";
+        return;
+    }
+
+    const porCliente = {};
+    pendentes.forEach(p => {
+        const chave = p.clienteId || (p.cliente || "Cliente sem nome").trim();
+        if (!porCliente[chave]) {
+            porCliente[chave] = {
+                cliente: (p.cliente || "Cliente sem nome").trim(),
+                clienteId: p.clienteId || "",
+                telefone: p.telefone || "",
+                total: 0,
+                qtd: 0
+            };
+        }
+        porCliente[chave].total += saldoPedido(p);
+        porCliente[chave].qtd++;
+        if (!porCliente[chave].telefone && p.telefone) porCliente[chave].telefone = p.telefone;
+    });
+
+    const clientes = Object.values(porCliente).sort((a, b) => b.total - a.total);
+    clientesPendentesRenderizados = clientes;
+    lista.innerHTML = `
+        <table>
+            <thead>
+                <tr>
+                    <th>Cliente</th>
+                    <th>Telefone</th>
+                    <th>Pedidos</th>
+                    <th>Total Pendente</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${clientes.map((c, indice) => `
+                    <tr>
+                        <td>${escaparHTML(c.cliente)}</td>
+                        <td>${escaparHTML(c.telefone || "-")}</td>
+                        <td>${c.qtd}</td>
+                        <td>R$ ${c.total.toFixed(2)}</td>
+                        <td><button onclick="abrirClientePendente(${indice})">Ver cliente</button></td>
+                    </tr>
+                `).join("")}
+            </tbody>
+        </table>
+    `;
+}
+
+function preencherClientesFinanceiros() {
+    const clientes = [...new Set(pedidos.map(p => (p.cliente || "").trim()).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, "pt-BR"));
+    document.getElementById("clientesFinanceiros").innerHTML = clientes
+        .map(cliente => `<option value="${escaparHTML(cliente)}"></option>`).join("");
+}
+
+function normalizarNome(valor) {
+    return String(valor || "").trim().toLocaleLowerCase("pt-BR")
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function renderResumoCliente() {
+    const termo = normalizarNome(document.getElementById("buscaClienteFinanceiro").value);
+    const destino = document.getElementById("resumoClienteFinanceiro");
+    if (!termo) {
+        destino.innerHTML = "";
+        return;
+    }
+
+    const grupos = {};
+    pedidosNoPeriodo().filter(p => normalizarNome(p.cliente).includes(termo)).forEach(p => {
+        const chave = p.clienteId || normalizarNome(p.cliente);
+        if (!grupos[chave]) grupos[chave] = {
+            nome: p.cliente || "Cliente sem nome", clienteId: p.clienteId || "", pedidos: 0, pago: 0, pendente: 0
+        };
+        grupos[chave].pedidos++;
+        grupos[chave].pago += valorPagoPedido(p);
+        grupos[chave].pendente += saldoPedido(p);
+    });
+
+    const resultados = Object.values(grupos).sort((a, b) => b.pendente - a.pendente || a.nome.localeCompare(b.nome));
+    if (!resultados.length) {
+        destino.innerHTML = "<p style='color:#777;'>Nenhum pedido desse cliente no período selecionado.</p>";
+        return;
+    }
+
+    destino.innerHTML = `
+        <table>
+            <thead><tr><th>Cliente</th><th>Pedidos</th><th>Já pagou</th><th>Está devendo</th><th>Ação</th></tr></thead>
+            <tbody>${resultados.map((cliente, indice) => `
+                <tr>
+                    <td>${escaparHTML(cliente.nome)}</td>
+                    <td>${cliente.pedidos}</td>
+                    <td>R$ ${cliente.pago.toFixed(2)}</td>
+                    <td>R$ ${cliente.pendente.toFixed(2)}</td>
+                    <td><button onclick="abrirClienteResumo(${indice})">Ver cliente</button></td>
+                </tr>`).join("")}
+            </tbody>
+        </table>`;
+    window.clientesResumoFinanceiro = resultados;
+}
+
+function abrirClienteResumo(indice) {
+    const cliente = (window.clientesResumoFinanceiro || [])[indice];
+    if (!cliente) return;
+    if (cliente.clienteId) {
+        window.location.href = `cliente.html?id=${encodeURIComponent(cliente.clienteId)}&nome=${encodeURIComponent(cliente.nome)}`;
+        return;
+    }
+    abrirCliente(cliente.nome);
+}
+
+async function salvarDespesa() {
+    const user = auth.currentUser;
+    const data = document.getElementById("dataDespesa").value || new Date().toISOString().slice(0, 10);
+    const descricao = document.getElementById("descricaoDespesa").value.trim();
+    const categoria = document.getElementById("categoriaDespesa").value.trim();
+    const valor = Number(document.getElementById("valorDespesa").value);
+    if (!user || !descricao || !Number.isFinite(valor) || valor <= 0) {
+        alert("Informe a descrição e um valor maior que zero.");
+        return;
+    }
+    try {
+        await db.collection("despesas").add({ usuario: user.uid, data, descricao, categoria, valor, criadoEm: new Date() });
+        document.getElementById("descricaoDespesa").value = "";
+        document.getElementById("categoriaDespesa").value = "";
+        document.getElementById("valorDespesa").value = "";
+        await carregarDados();
+    } catch (erro) {
+        console.error("Erro ao salvar despesa:", erro);
+        alert("Não foi possível salvar a despesa. Verifique as regras do Firestore.");
+    }
+}
+
+async function excluirDespesa(id) {
+    if (!confirm("Excluir esta despesa?")) return;
+    await db.collection("despesas").doc(id).delete();
+    await carregarDados();
+}
+
+function formatarData(data) {
+    if (!data) return "-";
+    if (data.includes("/")) return data;
+    const partes = data.split("-");
+    return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : data;
+}
+
+function renderDespesas() {
+    const lista = document.getElementById("listaDespesas");
+    const itens = despesasNoPeriodo().sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")));
+    if (!itens.length) {
+        lista.innerHTML = "<p style='color:#777;'>Nenhuma despesa no período selecionado.</p>";
+        return;
+    }
+    lista.innerHTML = `
+        <table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Ação</th></tr></thead>
+        <tbody>${itens.map(despesa => `<tr>
+            <td>${formatarData(despesa.data)}</td>
+            <td>${escaparHTML(despesa.descricao)}</td>
+            <td>${escaparHTML(despesa.categoria || "-")}</td>
+            <td>R$ ${Number(despesa.valor || 0).toFixed(2)}</td>
+            <td><button onclick="excluirDespesa('${despesa.docId}')">Excluir</button></td>
+        </tr>`).join("")}</tbody></table>`;
+}
+ 
+function gerarGrafico() {
+    const mesesNomes = {
+        "01": "Jan", "02": "Fev", "03": "Mar", "04": "Abr",
+        "05": "Mai", "06": "Jun", "07": "Jul", "08": "Ago",
+        "09": "Set", "10": "Out", "11": "Nov", "12": "Dez"
+    };
+ 
+    // Agrupa o período selecionado por ano-mês.
+    const dados = {};
+    pedidosNoPeriodo().forEach(p => {
+        const chave = getMes(p);
+        if (!chave) return;
+        if (!dados[chave]) dados[chave] = { vendas: 0, lucro: 0, despesas: 0 };
+        dados[chave].vendas += Number(p.total || 0);
+        dados[chave].lucro += Number(p.lucro || 0);
+    });
+
+    despesasNoPeriodo().forEach(despesa => {
+        const chave = getMes(despesa);
+        if (!chave) return;
+        if (!dados[chave]) dados[chave] = { vendas: 0, lucro: 0, despesas: 0 };
+        dados[chave].despesas += Number(despesa.valor || 0);
+    });
+ 
+    // Ordena os meses cronologicamente
+    const chaves = Object.keys(dados).sort();
+ 
+    const labels = chaves.map(c => {
+        const [ano, mes] = c.split("-");
+        return `${mesesNomes[mes]}/${ano.slice(2)}`;
+    });
+ 
+    const vendas = chaves.map(c => dados[c].vendas);
+    const lucros = chaves.map(c => dados[c].lucro);
+    const valoresDespesas = chaves.map(c => dados[c].despesas);
+ 
+    // Destrói gráfico anterior se existir
+    if (graficoInstance) graficoInstance.destroy();
+ 
+    const ctx = document.getElementById("grafico").getContext("2d");
+    graficoInstance = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: "Vendas (R$)",
+                    data: vendas,
+                    backgroundColor: "#0f243e",
+                    borderRadius: 6
+                },
+                {
+                    label: "Lucro (R$)",
+                    data: lucros,
+                    backgroundColor: "#4fc3f7",
+                    borderRadius: 6
+                },
+                {
+                    label: "Despesas (R$)",
+                    data: valoresDespesas,
+                    backgroundColor: "#e74c3c",
+                    borderRadius: 6
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: "top" },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => `R$ ${ctx.parsed.y.toFixed(2)}`
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: val => `R$ ${val.toFixed(0)}`
+                    }
+                }
+            }
+        }
+    });
+}
+</script>
+ 
+</body>
+</html>

@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-Z6L869D38K"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-Z6L869D38K');
+</script>
+<title>LV Maker 3D - Catálogo</title>
+<meta name="description" content="Catálogo LV Maker 3D: produtos prontos e peças sob demanda em impressão 3D.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="LV Maker 3D - Catálogo">
+<meta property="og:description" content="Veja produtos prontos para entrega e peças sob demanda em impressão 3D.">
+<meta property="og:url" content="https://lv-maker.web.app/catalogo.html">
+<meta property="og:image" content="https://lv-maker.web.app/catalogo-preview-1200x630.jpg?v=1">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="LV Maker 3D">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="LV Maker 3D - Catálogo">
+<meta name="twitter:description" content="Produtos prontos e peças sob demanda em impressão 3D.">
+<meta name="twitter:image" content="https://lv-maker.web.app/catalogo-preview-1200x630.jpg?v=1">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f9;
+    color: #222;
+}
+
+header {
+    background: #0f243e;
+    color: white;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+header h1 { font-size: 20px; }
+
+.carrinho-btn {
+    background: #4fc3f7;
+    color: #0f243e;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.banner {
+    position: relative;
+    width: 100%;
+    max-height: 500px;
+    overflow: hidden;
+}
+
+.banner img {
+    width: 100%;
+    max-height: 500px;
+    object-fit: cover;
+    display: block;
+}
+
+.banner-texto {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.7));
+    color: white;
+    padding: 20px;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.categorias-bar {
+    display: flex;
+    gap: 8px;
+    padding: 16px 20px;
+    overflow-x: auto;
+    background: white;
+    border-bottom: 1px solid #eee;
+}
+
+.cat-btn {
+    background: #f4f6f9;
+    border: 1px solid #ddd;
+    padding: 6px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 13px;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.cat-btn.ativo {
+    background: #0f243e;
+    color: white;
+    border-color: #0f243e;
+}
+
+.produtos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    padding: 20px;
+}
+
+.produto-card {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+}
+
+.galeria-principal {
+    position: relative;
+    cursor: pointer;
+}
+
+.galeria-principal img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    display: block;
+}
+
+.galeria-badge {
+    position: absolute;
+    bottom: 6px;
+    right: 8px;
+    background: rgba(0,0,0,0.55);
+    color: white;
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 10px;
+}
+
+.produto-sem-foto {
+    width: 100%;
+    height: 180px;
+    background: #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #999;
+    font-size: 13px;
+}
+
+.produto-info {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.produto-info strong {
+    display: block;
+    font-size: 15px;
+    margin-bottom: 6px;
+}
+
+.categoria-tag {
+    font-size: 11px;
+    color: white;
+    background: #4fc3f7;
+    border-radius: 10px;
+    padding: 2px 8px;
+    display: inline-block;
+    margin-bottom: 8px;
+    align-self: flex-start;
+}
+
+.disponibilidade-tag {
+    font-size: 11px;
+    border-radius: 10px;
+    padding: 3px 8px;
+    display: inline-block;
+    margin-bottom: 8px;
+    align-self: flex-start;
+    font-weight: bold;
+}
+
+.disponibilidade-tag.pronta {
+    color: #0b5d1e;
+    background: #d8f5dd;
+}
+
+.disponibilidade-tag.demanda {
+    color: #815100;
+    background: #fff0cc;
+}
+
+.descricao-wrap {
+    font-size: 12px;
+    color: #555;
+    margin-bottom: 8px;
+    line-height: 1.5;
+}
+
+.descricao-texto {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.descricao-texto.expandido {
+    display: block;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
+    overflow: visible;
+}
+
+.btn-ver-mais {
+    background: none;
+    border: none;
+    color: #4fc3f7;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 0;
+    margin-top: 2px;
+}
+
+.preco {
+    font-size: 16px;
+    font-weight: bold;
+    color: #0f243e;
+    margin: 8px 0 10px;
+}
+
+.btn-add {
+    width: 100%;
+    background: #0f243e;
+    color: white;
+    border: none;
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-top: auto;
+}
+
+.btn-add:hover { background: #1b3a5a; }
+
+.btn-add:disabled {
+    background: #ccc;
+    color: #666;
+    cursor: not-allowed;
+}
+
+.modal-foto {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.88);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}
+
+.modal-foto.aberto { display: flex; }
+
+.modal-foto img {
+    max-width: 92vw;
+    max-height: 80vh;
+    border-radius: 10px;
+    object-fit: contain;
+}
+
+.modal-nav {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-top: 16px;
+}
+
+.modal-nav button {
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: white;
+    font-size: 24px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-nav button:hover { background: rgba(255,255,255,0.3); }
+
+.modal-contador {
+    color: white;
+    font-size: 13px;
+    min-width: 50px;
+    text-align: center;
+}
+
+.modal-fechar {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 28px;
+    cursor: pointer;
+}
+
+.overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 200;
+}
+
+.carrinho-panel {
+    position: fixed;
+    top: 0;
+    right: -100%;
+    width: min(360px, 100%);
+    height: 100%;
+    background: white;
+    z-index: 300;
+    display: flex;
+    flex-direction: column;
+    transition: right 0.3s ease;
+    box-shadow: -4px 0 16px rgba(0,0,0,0.15);
+}
+
+.carrinho-panel.aberto { right: 0; }
+
+.carrinho-header {
+    background: #0f243e;
+    color: white;
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.carrinho-header button {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.carrinho-itens {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+.item-carrinho {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.item-carrinho img {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.item-info { flex: 1; }
+.item-info strong { font-size: 13px; }
+.item-info span { font-size: 12px; color: #555; display: block; }
+
+.item-qtd {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.item-qtd button {
+    width: 26px;
+    height: 26px;
+    border: 1px solid #ccc;
+    background: white;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.item-qtd button:disabled {
+    color: #999;
+    background: #f1f1f1;
+    cursor: not-allowed;
+}
+
+.carrinho-footer {
+    padding: 16px;
+    border-top: 1px solid #eee;
+}
+
+.total-linha {
+    display: flex;
+    justify-content: space-between;
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 12px;
+}
+
+.btn-finalizar {
+    width: 100%;
+    background: #25D366;
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.btn-finalizar:hover { background: #1da851; }
+
+.btn-continuar {
+    width: 100%;
+    background: white;
+    color: #0f243e;
+    border: 1px solid #0f243e;
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-bottom: 8px;
+}
+
+.btn-continuar:hover {
+    background: #f4f6f9;
+}
+
+.carrinho-vazio {
+    text-align: center;
+    color: #999;
+    margin-top: 40px;
+}
+
+.badge {
+    background: #e74c3c;
+    color: white;
+    border-radius: 50%;
+    padding: 2px 6px;
+    font-size: 12px;
+    margin-left: 4px;
+}
+
+.form-pedido {
+    padding: 12px 16px;
+    border-top: 1px solid #eee;
+}
+
+.form-pedido input,
+.form-pedido textarea {
+    width: 100%;
+    padding: 8px;
+    margin: 4px 0;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: Arial, sans-serif;
+}
+
+.form-pedido textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.form-pedido label {
+    font-size: 12px;
+    color: #555;
+}
+
+.sugestao-card {
+    background: white;
+    border-radius: 12px;
+    margin: 20px;
+    padding: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.sugestao-card h3 {
+    font-size: 16px;
+    margin-bottom: 6px;
+    color: #0f243e;
+}
+
+.sugestao-card p {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 12px;
+}
+
+.sugestao-card textarea,
+.sugestao-card input {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: Arial, sans-serif;
+}
+
+.sugestao-card textarea {
+    resize: vertical;
+    min-height: 70px;
+}
+
+.btn-sugestao {
+    width: 100%;
+    background: #0f243e;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.btn-sugestao:hover { background: #1b3a5a; }
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>🖨️ LV Maker 3D</h1>
+    <button class="carrinho-btn" onclick="abrirCarrinho()">
+        🛒 Carrinho <span class="badge" id="badgeQtd">0</span>
+    </button>
+</header>
+
+<div class="banner" id="banner" style="display:none;">
+    <img id="bannerImg" src="" alt="Promoção">
+    <div class="banner-texto" id="bannerTexto"></div>
+</div>
+
+<div class="categorias-bar" id="categoriasBar" style="display:none;">
+    <button class="cat-btn ativo" onclick="filtrarCategoria('', this)">Todos</button>
+</div>
+
+<div id="loading" style="text-align:center;padding:40px;color:#555;">Carregando produtos...</div>
+<div class="produtos-grid" id="produtosGrid"></div>
+
+<div class="sugestao-card">
+    <h3>🔍 Não encontrou o que procura?</h3>
+    <p>Me conta o que você precisa e eu te respondo pelo WhatsApp se consigo fazer.</p>
+    <textarea id="sugestaoTexto" placeholder="Ex: gostaria de um suporte de celular personalizado..."></textarea>
+    <input id="sugestaoNome" placeholder="Seu nome">
+    <input id="sugestaoTelefone" placeholder="Seu WhatsApp (com DDD)">
+    <button class="btn-sugestao" onclick="enviarSugestao()">📲 Enviar Sugestão no WhatsApp</button>
+</div>
+
+<div class="modal-foto" id="modalFoto">
+    <button class="modal-fechar" onclick="fecharModal()">✕</button>
+    <img id="modalImg" src="" alt="">
+    <div class="modal-nav">
+        <button onclick="navModal(-1)">‹</button>
+        <span class="modal-contador" id="modalContador"></span>
+        <button onclick="navModal(1)">›</button>
+    </div>
+</div>
+
+<div class="overlay" id="overlay" onclick="fecharCarrinho()"></div>
+
+<div class="carrinho-panel" id="carrinhoPanel">
+    <div class="carrinho-header">
+        <span>🛒 Meu Carrinho</span>
+        <button onclick="fecharCarrinho()">✕</button>
+    </div>
+
+    <div class="carrinho-itens" id="carrinhoItens">
+        <p class="carrinho-vazio">Seu carrinho está vazio.</p>
+    </div>
+
+    <div class="form-pedido" id="formPedido" style="display:none;">
+        <label>Seu nome</label>
+        <input id="nomeComprador" placeholder="Como você se chama?">
+        <label>Seu WhatsApp (com DDD)</label>
+        <input id="telefoneComprador" placeholder="Ex: 47999999999">
+        <label>Observação (opcional)</label>
+        <textarea id="observacaoPedido" placeholder="Ex: gostaria em outra cor, tem urgência, etc."></textarea>
+    </div>
+
+    <div class="carrinho-footer">
+        <div class="total-linha">
+            <span>Total:</span>
+            <span>R$ <span id="totalCarrinho">0,00</span></span>
+        </div>
+        <button class="btn-continuar" onclick="fecharCarrinho()">
+            Continuar comprando
+        </button>
+        <button class="btn-finalizar" onclick="finalizarPedido()">
+            📲 Enviar Pedido no WhatsApp
+        </button>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+    apiKey: "AIzaSyASqz8XoAhyD6w-klOr4HXlj_4URkQlBU8",
+    authDomain: "lv-maker.firebaseapp.com",
+    projectId: "lv-maker",
+    storageBucket: "lv-maker.firebasestorage.app",
+    messagingSenderId: "216355482221",
+    appId: "1:216355482221:web:5c3806b990538fa7dc6d64"
+};
+
+firebase.initializeApp(firebaseConfig);
+const appCheck = firebase.appCheck();
+appCheck.activate(
+    new firebase.appCheck.ReCaptchaEnterpriseProvider("6LcX5IItAAAAAMMojs5eGD6mDUWpnFozv-P_xmC_"),
+    true
+);
+const db = firebase.firestore();
+
+const SEU_WHATSAPP = "5547992027726";
+
+let carrinho = [];
+let todosProdutos = [];
+let categoriaAtiva = "";
+
+let fotoAtual = 0;
+let fotosModal = [];
+
+function escaparHTML(valor) {
+    return String(valor ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+function abrirModal(fotos, indice) {
+    fotosModal = fotos;
+    fotoAtual = indice;
+    document.getElementById("modalImg").src = fotosModal[fotoAtual];
+    document.getElementById("modalContador").innerText = `${fotoAtual + 1} / ${fotosModal.length}`;
+    document.getElementById("modalFoto").classList.add("aberto");
+    document.getElementById("modalFoto").querySelector(".modal-nav").style.display =
+        fotosModal.length > 1 ? "flex" : "none";
+}
+
+function fecharModal() {
+    document.getElementById("modalFoto").classList.remove("aberto");
+}
+
+function navModal(dir) {
+    fotoAtual = (fotoAtual + dir + fotosModal.length) % fotosModal.length;
+    document.getElementById("modalImg").src = fotosModal[fotoAtual];
+    document.getElementById("modalContador").innerText = `${fotoAtual + 1} / ${fotosModal.length}`;
+}
+
+function abrirModalProduto(docId, indice) {
+    const produto = todosProdutos.find(p => p.docId === docId);
+    if (!produto) return;
+    abrirModal(produto.fotos || [], indice);
+}
+
+document.getElementById("modalFoto").addEventListener("click", function(e) {
+    if (e.target === this) fecharModal();
+});
+
+async function carregarBanner() {
+    try {
+        const doc = await db.collection("configuracoes").doc("banner").get();
+        if (doc.exists) {
+            const b = doc.data();
+            if (b.ativo && b.imagemURL) {
+                document.getElementById("bannerImg").src = b.imagemURL;
+                document.getElementById("bannerTexto").innerText = b.texto || "";
+                document.getElementById("banner").style.display = "block";
+            }
+        }
+    } catch(e) {}
+}
+
+async function carregarProdutos() {
+    const snapshot = await db.collection("produtos")
+        .where("ativo", "==", true)
+        .orderBy("criadoEm", "desc")
+        .get();
+
+    document.getElementById("loading").style.display = "none";
+    todosProdutos = [];
+    const categorias = new Set();
+
+    snapshot.forEach(doc => {
+        const p = doc.data();
+        p.docId = doc.id;
+        if (!p.fotos || p.fotos.length === 0) {
+            p.fotos = p.fotoURL ? [p.fotoURL] : [];
+        }
+        todosProdutos.push(p);
+        if (p.categoria) categorias.add(p.categoria);
+    });
+
+    if (categorias.size > 0) {
+        const bar = document.getElementById("categoriasBar");
+        bar.style.display = "flex";
+        categorias.forEach(cat => {
+            const btn = document.createElement("button");
+            btn.className = "cat-btn";
+            btn.innerText = cat;
+            btn.onclick = () => filtrarCategoria(cat, btn);
+            bar.appendChild(btn);
+        });
+    }
+
+    renderProdutos();
+}
+
+function filtrarCategoria(categoria, btnClicado) {
+    categoriaAtiva = categoria;
+    document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("ativo"));
+    btnClicado.classList.add("ativo");
+    renderProdutos();
+}
+
+function toggleDescricao(btn, textoEl) {
+    const expandido = textoEl.classList.toggle("expandido");
+    btn.innerText = expandido ? "Ver menos" : "Ver mais";
+}
+
+function renderProdutos() {
+    const grid = document.getElementById("produtosGrid");
+    grid.innerHTML = "";
+
+    const filtrados = categoriaAtiva
+        ? todosProdutos.filter(p => p.categoria === categoriaAtiva)
+        : todosProdutos;
+
+    if (filtrados.length === 0) {
+        grid.innerHTML = "<p style='padding:20px;color:#999;'>Nenhum produto disponível.</p>";
+        return;
+    }
+
+    filtrados.forEach(p => {
+        const fotos = p.fotos || [];
+        const descricaoId = `desc-${p.docId}`;
+        const btnId = `btn-${p.docId}`;
+        const temDescricaoLonga = p.descricao && p.descricao.length > 80;
+        const disponibilidade = p.disponibilidade || "sob_demanda";
+        const estoquePronto = Number(p.estoquePronto || 0);
+        const semEstoquePronto = disponibilidade === "pronta_entrega" && estoquePronto <= 0;
+        const textoDisponibilidade = disponibilidade === "pronta_entrega"
+            ? (estoquePronto > 0 ? `Pronta entrega: ${estoquePronto} un.` : "Pronta entrega: esgotado")
+            : "Sob demanda";
+        const classeDisponibilidade = disponibilidade === "pronta_entrega" ? "pronta" : "demanda";
+
+        const card = document.createElement("div");
+        card.className = "produto-card";
+        card.innerHTML = `
+            ${fotos.length > 0
+                ? `<div class="galeria-principal" onclick="abrirModalProduto('${p.docId}', 0)">
+                    <img src="${escaparHTML(fotos[0])}" alt="${escaparHTML(p.nome)}">
+                    ${fotos.length > 1 ? `<span class="galeria-badge">📷 ${fotos.length}</span>` : ""}
+                   </div>`
+                : `<div class="produto-sem-foto">Sem foto</div>`}
+            <div class="produto-info">
+                <strong>${escaparHTML(p.nome)}</strong>
+                ${p.categoria ? `<span class="categoria-tag">${escaparHTML(p.categoria)}</span>` : ""}
+                <span class="disponibilidade-tag ${classeDisponibilidade}">${escaparHTML(textoDisponibilidade)}</span>
+                ${p.descricao ? `
+                <div class="descricao-wrap">
+                    <span class="descricao-texto" id="${descricaoId}">${escaparHTML(p.descricao)}</span>
+                    ${temDescricaoLonga ? `<button class="btn-ver-mais" id="${btnId}" onclick="toggleDescricao(document.getElementById('${btnId}'), document.getElementById('${descricaoId}'))">Ver mais</button>` : ""}
+                </div>` : ""}
+                <p class="preco">R$ ${Number(p.preco).toFixed(2)}</p>
+                <button class="btn-add" onclick="adicionarCarrinhoPorId('${p.docId}')" ${semEstoquePronto ? "disabled" : ""}>
+                    ${semEstoquePronto ? "Esgotado" : "+ Adicionar"}
+                </button>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+function adicionarCarrinhoPorId(docId) {
+    const p = todosProdutos.find(produto => produto.docId === docId);
+    if (!p) return;
+    const fotos = p.fotos || [];
+    adicionarCarrinho({
+        docId: p.docId,
+        nome: p.nome,
+        preco: p.preco,
+        fotoURL: fotos[0] || "",
+        disponibilidade: p.disponibilidade || "sob_demanda",
+        estoquePronto: Number(p.estoquePronto || 0)
+    });
+}
+
+function limiteEstoque(produto) {
+    if (produto.disponibilidade !== "pronta_entrega") return Infinity;
+    return Number(produto.estoquePronto || 0);
+}
+
+function adicionarCarrinho(produto) {
+    const existente = carrinho.find(i => i.produto.docId === produto.docId);
+    const limite = limiteEstoque(produto);
+
+    if (limite <= 0) {
+        alert("Esse produto pronta entrega está esgotado.");
+        return;
+    }
+
+    if (existente) {
+        if (existente.qtd >= limite) {
+            alert(`Você já adicionou a quantidade pronta disponível (${limite} un.).`);
+            abrirCarrinho();
+            return;
+        }
+        existente.qtd++;
+    }
+    else { carrinho.push({ produto, qtd: 1 }); }
+    atualizarCarrinho();
+    abrirCarrinho();
+}
+
+function removerItem(docId) {
+    const idx = carrinho.findIndex(i => i.produto.docId === docId);
+    if (idx === -1) return;
+    if (carrinho[idx].qtd > 1) { carrinho[idx].qtd--; }
+    else { carrinho.splice(idx, 1); }
+    atualizarCarrinho();
+}
+
+function adicionarItem(docId) {
+    const item = carrinho.find(i => i.produto.docId === docId);
+    if (item) {
+        const limite = limiteEstoque(item.produto);
+        if (item.qtd >= limite) {
+            alert(`Quantidade máxima pronta disponível: ${limite} un.`);
+            return;
+        }
+        item.qtd++;
+    }
+    atualizarCarrinho();
+}
+
+function atualizarCarrinho() {
+    const total = carrinho.reduce((acc, i) => acc + (i.produto.preco * i.qtd), 0);
+    const qtdTotal = carrinho.reduce((acc, i) => acc + i.qtd, 0);
+
+    document.getElementById("badgeQtd").innerText = qtdTotal;
+    document.getElementById("totalCarrinho").innerText = total.toFixed(2).replace(".", ",");
+    document.getElementById("formPedido").style.display = carrinho.length > 0 ? "block" : "none";
+
+    const container = document.getElementById("carrinhoItens");
+    if (carrinho.length === 0) {
+        container.innerHTML = "<p class='carrinho-vazio'>Seu carrinho está vazio.</p>";
+        return;
+    }
+
+    container.innerHTML = "";
+    carrinho.forEach(i => {
+        const limite = limiteEstoque(i.produto);
+        const atingiuLimite = i.qtd >= limite;
+        const div = document.createElement("div");
+        div.className = "item-carrinho";
+        div.innerHTML = `
+            ${i.produto.fotoURL
+                ? `<img src="${escaparHTML(i.produto.fotoURL)}" alt="${escaparHTML(i.produto.nome)}">`
+                : `<div style="width:50px;height:50px;background:#ddd;border-radius:6px;"></div>`}
+            <div class="item-info">
+                <strong>${escaparHTML(i.produto.nome)}</strong>
+                <span>R$ ${Number(i.produto.preco).toFixed(2)}</span>
+                ${i.produto.disponibilidade === "pronta_entrega" ? `<span>Disponível: ${limite} un.</span>` : ""}
+            </div>
+            <div class="item-qtd">
+                <button onclick="removerItem('${i.produto.docId}')">−</button>
+                <span>${i.qtd}</span>
+                <button onclick="adicionarItem('${i.produto.docId}')" ${atingiuLimite ? "disabled" : ""}>+</button>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function abrirCarrinho() {
+    document.getElementById("carrinhoPanel").classList.add("aberto");
+    document.getElementById("overlay").style.display = "block";
+}
+
+function fecharCarrinho() {
+    document.getElementById("carrinhoPanel").classList.remove("aberto");
+    document.getElementById("overlay").style.display = "none";
+}
+
+async function salvarPedidoCatalogo(nome, telefone, observacao, total) {
+    const itens = carrinho.map(i => ({
+        produtoId: i.produto.docId || "",
+        nome: i.produto.nome || "",
+        preco: Number(i.produto.preco || 0),
+        qtd: Number(i.qtd || 0),
+        subtotal: Number(i.produto.preco || 0) * Number(i.qtd || 0),
+        disponibilidade: i.produto.disponibilidade || "sob_demanda"
+    }));
+
+    const doc = await db.collection("pedidosCatalogo").add({
+        cliente: nome,
+        telefone: telefone.replace(/\D/g, ""),
+        observacao,
+        itens,
+        total,
+        status: "novo",
+        origem: "catalogo",
+        criadoEm: new Date()
+    });
+
+    return doc.id;
+}
+
+async function finalizarPedido() {
+    if (carrinho.length === 0) { alert("Seu carrinho está vazio."); return; }
+
+    const nome = document.getElementById("nomeComprador").value.trim();
+    const telefone = document.getElementById("telefoneComprador").value.trim();
+    const observacao = document.getElementById("observacaoPedido").value.trim();
+    const telefoneNumeros = telefone.replace(/\D/g, "");
+
+    if (nome.length < 2 || nome.length > 100 || !telefone) {
+        alert("Preencha seu nome e WhatsApp para continuar.");
+        return;
+    }
+    if (!/^[0-9]{10,13}$/.test(telefoneNumeros)) {
+        alert("Informe um WhatsApp válido com DDD.");
+        return;
+    }
+    if (observacao.length > 500) {
+        alert("A observação pode ter no máximo 500 caracteres.");
+        return;
+    }
+    if (carrinho.length > 20) {
+        alert("O pedido pode ter no máximo 20 itens diferentes.");
+        return;
+    }
+
+    const total = carrinho.reduce((acc, i) => acc + (i.produto.preco * i.qtd), 0);
+    if (total <= 0 || total > 100000) {
+        alert("O total do pedido não é válido.");
+        return;
+    }
+    let linhas = "";
+    carrinho.forEach((i, idx) => {
+        linhas += `📦 ${idx + 1}. ${i.produto.nome}\n   Qtd: ${i.qtd} × R$ ${Number(i.produto.preco).toFixed(2)} = R$ ${(i.produto.preco * i.qtd).toFixed(2)}\n\n`;
+    });
+
+    const blocoObservacao = observacao ? `📝 *Observação:* ${observacao}\n\n` : "";
+    let pedidoCodigo = "";
+
+    try {
+        pedidoCodigo = await salvarPedidoCatalogo(nome, telefoneNumeros, observacao, total);
+    } catch (erro) {
+        console.error("Erro ao registrar pedido:", erro);
+        alert("Não foi possível registrar o pedido agora. Vou abrir o WhatsApp mesmo assim.");
+    }
+
+    const mensagem = encodeURIComponent(
+`🖨️ *Novo Pedido - LV Maker 3D*
+
+👤 Cliente: ${nome}
+📞 WhatsApp: ${telefone}
+${pedidoCodigo ? `🧾 Código: ${pedidoCodigo}\n` : ""}
+
+${linhas}${blocoObservacao}💰 *Total: R$ ${total.toFixed(2)}*
+
+Aguardo confirmação! 🙌`
+    );
+
+    window.open(`https://wa.me/${SEU_WHATSAPP}?text=${mensagem}`, "_blank");
+    if (pedidoCodigo) {
+        carrinho = [];
+        atualizarCarrinho();
+        fecharCarrinho();
+        document.getElementById("nomeComprador").value = "";
+        document.getElementById("telefoneComprador").value = "";
+        document.getElementById("observacaoPedido").value = "";
+    }
+}
+
+function enviarSugestao() {
+    const texto = document.getElementById("sugestaoTexto").value.trim();
+    const nome = document.getElementById("sugestaoNome").value.trim();
+    const telefone = document.getElementById("sugestaoTelefone").value.trim();
+
+    if (!texto || !nome || !telefone) {
+        alert("Preencha o que você procura, seu nome e WhatsApp.");
+        return;
+    }
+
+    const mensagem = encodeURIComponent(
+`🔍 *Sugestão de Produto - LV Maker 3D*
+
+👤 Cliente: ${nome}
+📞 WhatsApp: ${telefone}
+
+📝 O que procura:
+${texto}`
+    );
+
+    window.open(`https://wa.me/${SEU_WHATSAPP}?text=${mensagem}`, "_blank");
+}
+
+carregarBanner();
+carregarProdutos();
+</script>
+
+</body>
+</html>
