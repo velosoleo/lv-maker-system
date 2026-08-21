@@ -40,3 +40,10 @@ coverage/
 .dataconnect
 
 .npm-cache/
+
+# Configurações locais do Firebase CLI
+.config/
+
+# Configurações locais
+.config/
+.npm-cache/
