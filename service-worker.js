@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lv-maker-v15';
+const CACHE_NAME = 'lv-maker-v18';
 const FILES_TO_CACHE = [
     '/',
     '/index.html',

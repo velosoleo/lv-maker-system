@@ -128,6 +128,8 @@
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
             <div><label style="font-size:12px;color:#555;">Nome</label><input id="nomeFilamento" placeholder="Ex: PLA Genérico" style="width:160px;"></div>
             <div><label style="font-size:12px;color:#555;">Preço por kg (R$)</label><input id="precoFilamento" type="number" step="0.01" placeholder="89" style="width:120px;"></div>
+            <div><label style="font-size:12px;color:#555;">Estoque inicial (kg)</label><input id="estoqueFilamento" type="number" min="0" step="0.001" value="0" style="width:115px;"></div>
+            <div><label style="font-size:12px;color:#555;">Avisar abaixo de (kg)</label><input id="estoqueMinimoFilamento" type="number" min="0" step="0.001" value="0" style="width:125px;"></div>
             <button onclick="adicionarFilamento()">Adicionar</button>
         </div>
         <div class="lista-itens" id="listaFilamentos"></div>
@@ -142,6 +144,34 @@
             <button onclick="adicionarImpressora()">Adicionar</button>
         </div>
         <div class="lista-itens" id="listaImpressoras"></div>
+
+        <hr style="margin:16px 0;">
+
+        <h4 style="margin-bottom:8px;">Insumos e componentes</h4>
+        <p style="font-size:13px;color:#555;margin-top:0;">Cadastre itens comprados que podem compor um orçamento, como embalagens, velas LED, ímãs, argolas ou outros acessórios.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+            <div><label style="font-size:12px;color:#555;">Nome</label><input id="nomeInsumo" placeholder="Ex: Vela LED" style="width:170px;"></div>
+            <div><label style="font-size:12px;color:#555;">Categoria</label><select id="categoriaInsumo"><option>Embalagem</option><option>Componente</option><option>Acessório</option><option>Matéria-prima</option><option>Outro</option></select></div>
+            <div><label style="font-size:12px;color:#555;">Unidade</label><select id="unidadeInsumo"><option value="un">unidade</option><option value="kit">kit</option><option value="g">grama</option><option value="kg">quilo</option><option value="ml">ml</option></select></div>
+            <div><label style="font-size:12px;color:#555;">Custo por unidade (R$)</label><input id="custoInsumo" type="number" min="0.01" step="0.01" placeholder="3.50" style="width:135px;"></div>
+            <div><label style="font-size:12px;color:#555;">Estoque inicial</label><input id="estoqueInsumo" type="number" min="0" step="0.001" value="0" style="width:105px;"></div>
+            <div><label style="font-size:12px;color:#555;">Avisar abaixo de</label><input id="estoqueMinimoInsumo" type="number" min="0" step="0.001" value="0" style="width:105px;"></div>
+            <button onclick="adicionarInsumoCatalogo()">Adicionar insumo</button>
+        </div>
+        <div class="lista-itens" id="listaInsumosCadastrados"></div>
+        <div id="alertasEstoque" style="margin-top:10px;"></div>
+
+        <div style="margin-top:14px;padding:12px;background:#f4f6f9;border-radius:8px;">
+            <strong style="font-size:14px;">Registrar compra e repor estoque</strong>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:7px;">
+                <select id="insumoCompra" style="min-width:200px;"></select>
+                <div><label style="font-size:12px;color:#555;">Quantidade comprada</label><input id="quantidadeCompraInsumo" type="number" min="0.001" step="0.001" placeholder="10" style="width:125px;"></div>
+                <div><label style="font-size:12px;color:#555;">Valor total pago (R$)</label><input id="valorCompraInsumo" type="number" min="0.01" step="0.01" placeholder="35.00" style="width:125px;"></div>
+                <div><label style="font-size:12px;color:#555;">Data</label><input id="dataCompraInsumo" type="date"></div>
+                <button onclick="registrarCompraInsumo()">Registrar compra</button>
+            </div>
+            <small style="color:#555;display:block;margin-top:6px;">A compra atualiza o estoque e cria uma despesa automaticamente no Financeiro.</small>
+        </div>
 
     </div>
 </div>
@@ -177,7 +207,7 @@
                 <input id="trabalhoMinutos" type="number" min="0" max="59" placeholder="Min" oninput="calcular()">
             </div>
         </div>
-        <div><label>Insumos extras (R$)</label><input id="insumos" type="number" step="0.01" value="0" oninput="calcular()"></div>
+        <div><label>Extras manuais (R$)</label><input id="insumos" type="number" step="0.01" value="0" oninput="calcular()"></div>
         <div>
             <label>Embalagem</label>
             <select id="embalagemTipo" onchange="aplicarEmbalagem(); calcular();">
@@ -206,6 +236,16 @@
         </div>
     </div>
 
+    <div style="margin:14px 0;padding:12px;background:#f4f6f9;border-radius:8px;">
+        <label style="display:block;font-size:13px;color:#555;margin-bottom:6px;"><strong>Itens cadastrados neste orçamento</strong> <small>(quantidade usada por peça)</small></label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+            <select id="insumoSelecionado" style="min-width:220px;"></select>
+            <input id="quantidadeInsumo" type="number" min="0.001" step="0.001" value="1" placeholder="Quantidade" style="width:115px;">
+            <button type="button" onclick="adicionarInsumoAoOrcamento()">+ Adicionar ao orçamento</button>
+        </div>
+        <div class="lista-itens" id="listaInsumosOrcamento"></div>
+    </div>
+
     <div class="orcamento-resumo dashboard">
         <div class="box"><strong>Custo unitário</strong><p>R$ <span id="custoUnitario">0.00</span></p></div>
         <div class="box"><strong>Preço sugerido</strong><p>R$ <span id="precoSugerido">0.00</span></p></div>
@@ -218,6 +258,7 @@
         <span>Energia: R$ <strong id="dEnergia">0.00</strong></span>
         <span>Impressora: R$ <strong id="dImpressora">0.00</strong></span>
         <span>Trabalho: R$ <strong id="dTrabalho">0.00</strong></span>
+        <span>Insumos cadastrados: R$ <strong id="dInsumosCadastrados">0.00</strong></span>
         <span>Extras: R$ <strong id="dExtras">0.00</strong></span>
     </div>
 
@@ -285,6 +326,8 @@ const auth = firebase.auth();
 let orcamentos = [];
 let orcamentoEditando = null;
 let calculoAtual = {};
+let INSUMOS_CADASTRADOS = [];
+let itensInsumosOrcamento = [];
 
 let PARAMS = {
     energia: 0.75,
@@ -369,6 +412,8 @@ auth.onAuthStateChanged(user => {
         document.getElementById("sistema").style.display = "block";
         carregarConfiguracoes().then(() => {
             preencherSelects();
+            renderItensInsumosOrcamento();
+            document.getElementById("dataCompraInsumo").value = new Date().toISOString().slice(0, 10);
             calcular();
             carregarOrcamentos();
         });
@@ -385,6 +430,7 @@ async function carregarConfiguracoes() {
             if (d.params) PARAMS = { ...PARAMS, ...d.params };
             if (d.filamentos && d.filamentos.length > 0) FILAMENTOS = d.filamentos;
             if (d.impressoras && d.impressoras.length > 0) IMPRESSORAS = d.impressoras;
+            if (Array.isArray(d.insumosCadastrados)) INSUMOS_CADASTRADOS = d.insumosCadastrados;
         }
     } catch(e) {}
 
@@ -397,6 +443,7 @@ async function carregarConfiguracoes() {
 
     renderFilamentos();
     renderImpressoras();
+    renderInsumosCadastrados();
 }
 
 async function salvarParametros() {
@@ -413,11 +460,16 @@ async function salvarParametros() {
 }
 
 async function salvarConfigFirebase() {
-    await db.collection("configuracoes").doc("orcamento").set({
+    await db.collection("configuracoes").doc("orcamento").set(dadosConfiguracaoFirebase());
+}
+
+function dadosConfiguracaoFirebase() {
+    return {
         params: PARAMS,
         filamentos: FILAMENTOS,
-        impressoras: IMPRESSORAS
-    });
+        impressoras: IMPRESSORAS,
+        insumosCadastrados: INSUMOS_CADASTRADOS
+    };
 }
 
 function renderFilamentos() {
@@ -426,19 +478,29 @@ function renderFilamentos() {
     FILAMENTOS.forEach(f => {
         const span = document.createElement("span");
         span.className = "item-tag";
-        span.innerHTML = `${escaparHTML(f.nome)} - R$${Number(f.preco).toFixed(2)}/kg <button onclick="excluirFilamento('${f.id}')">✕</button>`;
+        const estoque = f.controlarEstoque ? ` · Est.: ${formatarQuantidade(f.estoqueAtual)} kg` : "";
+        span.innerHTML = `${escaparHTML(f.nome)} - R$${Number(f.preco).toFixed(2)}/kg${estoque} <button onclick="excluirFilamento('${f.id}')">✕</button>`;
         lista.appendChild(span);
     });
     preencherSelects();
+    renderAlertasEstoque();
 }
 
 async function adicionarFilamento() {
     const nome = document.getElementById("nomeFilamento").value.trim();
     const preco = parseFloat(document.getElementById("precoFilamento").value);
+    const estoqueAtual = Number(document.getElementById("estoqueFilamento").value);
+    const estoqueMinimo = Number(document.getElementById("estoqueMinimoFilamento").value);
     if (!nome || !preco) { alert("Preencha nome e preço."); return; }
-    FILAMENTOS.push({ id: "f" + Date.now(), nome, preco });
+    if (!Number.isFinite(estoqueAtual) || estoqueAtual < 0 || !Number.isFinite(estoqueMinimo) || estoqueMinimo < 0) {
+        alert("Informe valores de estoque válidos.");
+        return;
+    }
+    FILAMENTOS.push({ id: "f" + Date.now(), nome, preco, estoqueAtual, estoqueMinimo, controlarEstoque: true });
     document.getElementById("nomeFilamento").value = "";
     document.getElementById("precoFilamento").value = "";
+    document.getElementById("estoqueFilamento").value = "0";
+    document.getElementById("estoqueMinimoFilamento").value = "0";
     await salvarConfigFirebase();
     renderFilamentos();
 }
@@ -480,6 +542,174 @@ async function excluirImpressora(id) {
     renderImpressoras();
 }
 
+function renderInsumosCadastrados() {
+    const lista = document.getElementById("listaInsumosCadastrados");
+    lista.innerHTML = INSUMOS_CADASTRADOS.length
+        ? INSUMOS_CADASTRADOS.map(item => `<span class="item-tag">${escaparHTML(item.nome)} · R$${Number(item.custoUnitario || 0).toFixed(2)}/${escaparHTML(item.unidade || "un")}${item.controlarEstoque ? ` · Est.: ${formatarQuantidade(item.estoqueAtual)}` : ""} <button onclick="excluirInsumoCatalogo('${item.id}')" title="Excluir insumo">✕</button></span>`).join("")
+        : "<small style='color:#777;'>Nenhum insumo cadastrado ainda.</small>";
+    preencherSelectInsumos();
+    renderAlertasEstoque();
+}
+
+function formatarQuantidade(valor) {
+    return Number(valor || 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+}
+
+function renderAlertasEstoque() {
+    const area = document.getElementById("alertasEstoque");
+    const baixos = INSUMOS_CADASTRADOS.filter(item => {
+        const minimo = Number(item.estoqueMinimo || 0);
+        return item.controlarEstoque === true && minimo > 0 && Number(item.estoqueAtual || 0) <= minimo;
+    });
+    const filamentosBaixos = FILAMENTOS.filter(item => {
+        const minimo = Number(item.estoqueMinimo || 0);
+        return item.controlarEstoque === true && minimo > 0 && Number(item.estoqueAtual || 0) <= minimo;
+    }).map(item => `${escaparHTML(item.nome)} (${formatarQuantidade(item.estoqueAtual)} kg/${formatarQuantidade(item.estoqueMinimo)} kg)`);
+    const nomesBaixos = [...baixos.map(item => `${escaparHTML(item.nome)} (${formatarQuantidade(item.estoqueAtual)}/${formatarQuantidade(item.estoqueMinimo)})`), ...filamentosBaixos];
+    area.innerHTML = baixos.length
+        || filamentosBaixos.length ? `<div style="padding:8px 10px;background:#fff3cd;color:#856404;border-radius:6px;font-size:13px;">⚠️ Estoque baixo: ${nomesBaixos.join(", ")}</div>`
+        : "";
+}
+
+async function adicionarInsumoCatalogo() {
+    const nome = document.getElementById("nomeInsumo").value.trim();
+    const categoria = document.getElementById("categoriaInsumo").value;
+    const unidade = document.getElementById("unidadeInsumo").value;
+    const custoUnitario = Number(document.getElementById("custoInsumo").value);
+    const estoqueAtual = Number(document.getElementById("estoqueInsumo").value);
+    const estoqueMinimo = Number(document.getElementById("estoqueMinimoInsumo").value);
+    if (!nome || !Number.isFinite(custoUnitario) || custoUnitario <= 0) {
+        alert("Informe o nome e um custo unitário maior que zero.");
+        return;
+    }
+    if (!Number.isFinite(estoqueAtual) || estoqueAtual < 0 || !Number.isFinite(estoqueMinimo) || estoqueMinimo < 0) {
+        alert("Informe valores de estoque válidos.");
+        return;
+    }
+    INSUMOS_CADASTRADOS.push({ id: `ins_${Date.now()}`, nome, categoria, unidade, custoUnitario, estoqueAtual, estoqueMinimo, controlarEstoque: true });
+    document.getElementById("nomeInsumo").value = "";
+    document.getElementById("custoInsumo").value = "";
+    document.getElementById("estoqueInsumo").value = "0";
+    document.getElementById("estoqueMinimoInsumo").value = "0";
+    await salvarConfigFirebase();
+    renderInsumosCadastrados();
+}
+
+async function excluirInsumoCatalogo(id) {
+    const item = INSUMOS_CADASTRADOS.find(insumo => insumo.id === id);
+    if (item && !confirm(`Excluir o insumo \"${item.nome}\"? Orçamentos já salvos não serão alterados.`)) return;
+    INSUMOS_CADASTRADOS = INSUMOS_CADASTRADOS.filter(insumo => insumo.id !== id);
+    itensInsumosOrcamento = itensInsumosOrcamento.filter(insumo => insumo.id !== id);
+    await salvarConfigFirebase();
+    renderInsumosCadastrados();
+    renderItensInsumosOrcamento();
+    calcular();
+}
+
+function preencherSelectInsumos() {
+    const opcoes = `<option value="">Selecione um insumo cadastrado</option>${INSUMOS_CADASTRADOS.map(item => `<option value="${escaparHTML(item.id)}">${escaparHTML(item.nome)} — R$ ${Number(item.custoUnitario || 0).toFixed(2)}/${escaparHTML(item.unidade || "un")}</option>`).join("")}`;
+    ["insumoSelecionado"].forEach(id => {
+        const select = document.getElementById(id);
+        if (!select) return;
+        const valorAtual = select.value;
+        select.innerHTML = opcoes;
+        if (INSUMOS_CADASTRADOS.some(item => item.id === valorAtual)) select.value = valorAtual;
+    });
+
+    const selectCompra = document.getElementById("insumoCompra");
+    if (selectCompra) {
+        const valorAtual = selectCompra.value;
+        const opcoesCompra = [
+            '<option value="">Selecione um item para repor</option>',
+            ...FILAMENTOS.map(item => `<option value="filamento:${escaparHTML(item.id)}">[Filamento] ${escaparHTML(item.nome)} — R$ ${Number(item.preco || 0).toFixed(2)}/kg</option>`),
+            ...INSUMOS_CADASTRADOS.map(item => `<option value="insumo:${escaparHTML(item.id)}">[${escaparHTML(item.categoria || "Insumo")}] ${escaparHTML(item.nome)} — R$ ${Number(item.custoUnitario || 0).toFixed(2)}/${escaparHTML(item.unidade || "un")}</option>`)
+        ].join("");
+        selectCompra.innerHTML = opcoesCompra;
+        if (FILAMENTOS.some(item => `filamento:${item.id}` === valorAtual) || INSUMOS_CADASTRADOS.some(item => `insumo:${item.id}` === valorAtual)) selectCompra.value = valorAtual;
+    }
+}
+
+async function registrarCompraInsumo() {
+    const user = auth.currentUser;
+    const selecionado = document.getElementById("insumoCompra").value;
+    const quantidade = Number(document.getElementById("quantidadeCompraInsumo").value);
+    const valorTotal = Number(document.getElementById("valorCompraInsumo").value);
+    const data = document.getElementById("dataCompraInsumo").value || new Date().toISOString().slice(0, 10);
+    const [tipo, id] = selecionado.split(":");
+    const item = tipo === "filamento"
+        ? FILAMENTOS.find(filamento => filamento.id === id)
+        : INSUMOS_CADASTRADOS.find(insumo => insumo.id === id);
+    if (!user || !item || !Number.isFinite(quantidade) || quantidade <= 0 || !Number.isFinite(valorTotal) || valorTotal <= 0) {
+        alert("Selecione o insumo e informe quantidade e valor total válidos.");
+        return;
+    }
+
+    const estoqueAnterior = Math.max(0, Number(item.estoqueAtual || 0));
+    const campoCusto = tipo === "filamento" ? "preco" : "custoUnitario";
+    const custoAnterior = Math.max(0, Number(item[campoCusto] || 0));
+    const controleAnterior = item.controlarEstoque;
+    item.estoqueAtual = estoqueAnterior + quantidade;
+    item[campoCusto] = ((estoqueAnterior * custoAnterior) + valorTotal) / item.estoqueAtual;
+    item.controlarEstoque = true;
+
+    try {
+        const batch = db.batch();
+        batch.set(db.collection("configuracoes").doc("orcamento"), dadosConfiguracaoFirebase());
+        batch.set(db.collection("despesas").doc(), {
+            usuario: user.uid,
+            data,
+            descricao: `Compra: ${item.nome} (${formatarQuantidade(quantidade)} ${tipo === "filamento" ? "kg" : (item.unidade || "un")})`,
+            categoria: tipo === "filamento" ? "Insumos - Filamento" : `Insumos - ${item.categoria || "Outro"}`,
+            valor: valorTotal,
+            insumoId: item.id,
+            origem: "compra_insumo",
+            criadoEm: new Date()
+        });
+        await batch.commit();
+        document.getElementById("quantidadeCompraInsumo").value = "";
+        document.getElementById("valorCompraInsumo").value = "";
+        renderFilamentos();
+        renderInsumosCadastrados();
+        alert("Compra registrada. Estoque e Financeiro foram atualizados.");
+    } catch (erro) {
+        item.estoqueAtual = estoqueAnterior;
+        item[campoCusto] = custoAnterior;
+        item.controlarEstoque = controleAnterior;
+        console.error("Erro ao registrar compra de insumo:", erro);
+        alert("Não foi possível registrar a compra. Verifique as regras do Firebase.");
+    }
+}
+
+function renderItensInsumosOrcamento() {
+    const lista = document.getElementById("listaInsumosOrcamento");
+    if (!lista) return;
+    lista.innerHTML = itensInsumosOrcamento.length
+        ? itensInsumosOrcamento.map((item, indice) => `<span class="item-tag">${escaparHTML(item.nome)} × ${Number(item.quantidade || 0)} ${escaparHTML(item.unidade || "un")} · R$${(Number(item.quantidade || 0) * Number(item.custoUnitario || 0)).toFixed(2)} <button onclick="removerInsumoDoOrcamento(${indice})" title="Remover">✕</button></span>`).join("")
+        : "<small style='color:#777;'>Nenhum item cadastrado adicionado. Use para incluir, por exemplo, vela LED ou embalagem.</small>";
+}
+
+function adicionarInsumoAoOrcamento() {
+    const id = document.getElementById("insumoSelecionado").value;
+    const quantidade = Number(document.getElementById("quantidadeInsumo").value);
+    const item = INSUMOS_CADASTRADOS.find(insumo => insumo.id === id);
+    if (!item || !Number.isFinite(quantidade) || quantidade <= 0) {
+        alert("Selecione um insumo e informe uma quantidade válida.");
+        return;
+    }
+    const existente = itensInsumosOrcamento.find(insumo => insumo.id === id);
+    if (existente) existente.quantidade += quantidade;
+    else itensInsumosOrcamento.push({ id: item.id, nome: item.nome, unidade: item.unidade, custoUnitario: Number(item.custoUnitario), quantidade });
+    document.getElementById("quantidadeInsumo").value = "1";
+    renderItensInsumosOrcamento();
+    calcular();
+}
+
+function removerInsumoDoOrcamento(indice) {
+    itensInsumosOrcamento.splice(indice, 1);
+    renderItensInsumosOrcamento();
+    calcular();
+}
+
 function preencherSelects() {
     const selImp = document.getElementById("impressora");
     const selFil = document.getElementById("filamento");
@@ -491,6 +721,7 @@ function preencherSelects() {
 
     if (impAtual) selImp.value = impAtual;
     if (filAtual) selFil.value = filAtual;
+    preencherSelectInsumos();
 }
 
 function num(id) { return parseFloat(document.getElementById(id).value) || 0; }
@@ -507,25 +738,29 @@ function calcular() {
     const qtd = Math.max(1, num("quantidade") || 1);
     const insumos = num("insumos");
     const embalagem = num("embalagem");
+    const custoInsumosCadastrados = itensInsumosOrcamento.reduce((total, item) => {
+        return total + (Number(item.quantidade || 0) * Number(item.custoUnitario || 0));
+    }, 0);
     const markup = num("markup") || 1;
 
     const custoFilamento = (gramatura / 1000) * fil.preco;
     const custoEnergia = tempoImp * imp.consumo * PARAMS.energia;
     const custoImpressora = tempoImp * imp.depreciacao;
     const custoTrabalho = tempoTrab * PARAMS.trabalho;
-    const subtotal = custoFilamento + custoEnergia + custoImpressora + custoTrabalho + insumos + embalagem;
+    const subtotal = custoFilamento + custoEnergia + custoImpressora + custoTrabalho + insumos + embalagem + custoInsumosCadastrados;
     const custoComFalha = subtotal * (1 + PARAMS.falha / 100);
     const precoSugerido = custoComFalha * markup;
     const precoMarketplace = (precoSugerido / (1 - PARAMS.marketplace - PARAMS.imposto)) + PARAMS.taxaFixa;
     const total = precoSugerido * qtd;
 
-    calculoAtual = { custoFilamento, custoEnergia, custoImpressora, custoTrabalho, insumos, embalagem, subtotal, custoUnitario: custoComFalha, precoSugerido, precoMarketplace, total };
+    calculoAtual = { custoFilamento, custoEnergia, custoImpressora, custoTrabalho, insumos, embalagem, custoInsumosCadastrados, subtotal, custoUnitario: custoComFalha, precoSugerido, precoMarketplace, total };
 
     const m = v => Number(v || 0).toFixed(2);
     document.getElementById("dFilamento").innerText = m(custoFilamento);
     document.getElementById("dEnergia").innerText = m(custoEnergia);
     document.getElementById("dImpressora").innerText = m(custoImpressora);
     document.getElementById("dTrabalho").innerText = m(custoTrabalho);
+    document.getElementById("dInsumosCadastrados").innerText = m(custoInsumosCadastrados);
     document.getElementById("dExtras").innerText = m(insumos + embalagem);
     document.getElementById("custoUnitario").innerText = m(custoComFalha);
     document.getElementById("precoSugerido").innerText = m(precoSugerido);
@@ -584,6 +819,7 @@ async function salvarOrcamento() {
             projeto,
             quantidade: qtd,
             impressoraNome: imp ? imp.nome : "",
+            filamentoId: fil ? fil.id : "",
             filamentoNome: fil ? fil.nome : "",
             gramatura: num("gramatura"),
             tempoHoras: num("tempoHoras"),
@@ -592,6 +828,7 @@ async function salvarOrcamento() {
             trabalhoMinutos: num("trabalhoMinutos"),
             insumos: num("insumos"),
             embalagem: num("embalagem"),
+            itensInsumos: itensInsumosOrcamento.map(item => ({ ...item })),
             markup: num("markup"),
             status: document.getElementById("status").value,
             tipo: "avulso",
@@ -647,6 +884,9 @@ function limparCampos() {
     });
     document.getElementById("quantidade").value = 1;
     document.getElementById("insumos").value = 0;
+    itensInsumosOrcamento = [];
+    document.getElementById("quantidadeInsumo").value = "1";
+    renderItensInsumosOrcamento();
     document.getElementById("embalagemTipo").value = "0";
     document.getElementById("embalagem").value = 0;
     document.getElementById("markup").value = 2;
@@ -704,12 +944,25 @@ function editarOrcamento(id) {
     document.getElementById("telefone").value = o.telefone || "";
     document.getElementById("projeto").value = o.projeto || "";
     document.getElementById("quantidade").value = o.quantidade || 1;
+    if (o.filamentoId && FILAMENTOS.some(f => f.id === o.filamentoId)) {
+        document.getElementById("filamento").value = o.filamentoId;
+    }
     document.getElementById("gramatura").value = o.gramatura || "";
     document.getElementById("tempoHoras").value = o.tempoHoras || "";
     document.getElementById("tempoMinutos").value = o.tempoMinutos || "";
     document.getElementById("trabalhoHoras").value = o.trabalhoHoras || "";
     document.getElementById("trabalhoMinutos").value = o.trabalhoMinutos || "";
     document.getElementById("insumos").value = o.insumos || 0;
+    itensInsumosOrcamento = Array.isArray(o.itensInsumos)
+        ? o.itensInsumos.map(item => ({
+            id: item.id || "",
+            nome: item.nome || "Insumo",
+            unidade: item.unidade || "un",
+            custoUnitario: Number(item.custoUnitario || 0),
+            quantidade: Number(item.quantidade || 0)
+        })).filter(item => item.quantidade > 0 && item.custoUnitario >= 0)
+        : [];
+    renderItensInsumosOrcamento();
     document.getElementById("embalagemTipo").value = "custom";
     document.getElementById("embalagem").value = o.embalagem || 0;
     document.getElementById("markup").value = o.markup || 2;
@@ -739,7 +992,8 @@ function virarPedido(id) {
         produto: o.projeto || "",
         qtd: String(o.quantidade || 1),
         valor: m(o.calculo?.precoSugerido),
-        custo: m(o.calculo?.custoUnitario)
+        custo: m(o.calculo?.custoUnitario),
+        orcamentoId: o.docId
     });
     window.location.href = `index.html?${params.toString()}`;
 }

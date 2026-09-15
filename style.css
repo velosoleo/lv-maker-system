@@ -75,6 +75,101 @@ td {
 .nao {
     background: #ff0000; 
 }
+
+/* Badges de status de pagamento */
+.badge-pagamento {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    color: white;
+    letter-spacing: 0.3px;
+}
+.badge-pago {
+    background: #27ae60;
+}
+.badge-parcial {
+    background: #f39c12;
+}
+.badge-pendente {
+    background: #e74c3c;
+}
+
+/* Badges de data de entrega */
+.badge-entrega {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    background: #eef2f7;
+    color: #0f243e;
+}
+.badge-entrega-proxima {
+    background: #fff3cd;
+    color: #856404;
+    font-weight: 600;
+}
+.badge-entrega-atrasada {
+    background: #fde8e8;
+    color: #c0392b;
+    font-weight: 700;
+}
+
+/* Cupom fiscal / recibo */
+.cupom-fiscal {
+    font-family: "Courier New", Courier, monospace;
+    font-size: 13px;
+    line-height: 1.35;
+    background: #fffef5;
+    border: 1px dashed #ccc;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin: 0;
+    white-space: pre;
+    overflow-x: auto;
+    color: #222;
+    max-width: 340px;
+}
+
+.pagamento-info {
+    font-size: 12px;
+    color: #444;
+    line-height: 1.45;
+    margin-top: 4px;
+}
+.pagamento-info strong {
+    color: #0f243e;
+}
+
+/* Card de registro de pagamento */
+#cardPagamento {
+    border-left: 4px solid #0f243e;
+}
+#cardPagamento .resumo-pagamento {
+    background: #f4f6f9;
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin: 10px 0 14px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+#historicoPagamento table {
+    width: 100%;
+    margin-top: 8px;
+    font-size: 13px;
+}
+#historicoPagamento th {
+    background: #0f243e;
+    color: white;
+    padding: 6px 8px;
+    font-size: 12px;
+}
+#historicoPagamento td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #eee;
+}
  
 .dashboard {
     display: flex;

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -38,6 +37,8 @@
     <input id="data" type="date">
     <label>Data de Pagamento</label>
     <input id="dataPagamento" type="date">
+    <label>Data Estimada de Entrega <small style="color:#888;">(opcional)</small></label>
+    <input id="dataEntrega" type="date">
     <input id="cliente" placeholder="Cliente" oninput="buscarTelefoneCliente()">
     <input id="telefone" placeholder="Telefone com DDD (opcional)">
     <input id="produto" placeholder="Produto">
@@ -84,6 +85,33 @@
     <button onclick="gerarReciboSelecionado()">Gerar Recibo Selecionado</button>
     <button onclick="enviarCobrancaSelecionados()">📌 Enviar Cobrança Selecionados</button>
     <button onclick="exportarCSV()">Exportar CSV</button>
+
+    <div class="dashboard" id="dashboardProducao" style="margin:16px 0;">
+        <div class="box">
+            <strong>Aguardando</strong>
+            <p id="dashAguardando">0</p>
+        </div>
+        <div class="box">
+            <strong>Imprimindo</strong>
+            <p id="dashImprimindo">0</p>
+        </div>
+        <div class="box">
+            <strong>Pronto</strong>
+            <p id="dashPronto">0</p>
+        </div>
+        <div class="box">
+            <strong>Entregue</strong>
+            <p id="dashEntregue">0</p>
+        </div>
+        <div class="box" style="border-left:4px solid #e74c3c;">
+            <strong>Atrasados</strong>
+            <p id="dashAtrasados">0</p>
+        </div>
+        <div class="box" style="border-left:4px solid #f39c12;">
+            <strong>Pag. Pendente</strong>
+            <p id="dashPendente">0</p>
+        </div>
+    </div>
  
     <table>
         <thead>
@@ -91,6 +119,7 @@
                 <th>✔</th>
                 <th>Data Pedido</th>
                 <th>Data Pagamento</th>
+                <th>Entrega</th>
                 <th>Cliente</th>
                 <th>Produto</th>
                 <th>Qtd</th>
@@ -120,7 +149,7 @@
     <select id="formaRecebimento">
         <option>Pix</option><option>Dinheiro</option><option>Cartão</option><option>Outro</option>
     </select>
-    <button onclick="registrarPagamento()">Salvar pagamento</button>
+    <button id="btnRegistrarPagamento" onclick="registrarPagamento()">Salvar pagamento</button>
     <button onclick="fecharRegistroPagamento()" style="background:#888;">Cancelar</button>
     <div id="historicoPagamento"></div>
 </div>
@@ -186,6 +215,7 @@ let pedidosCatalogo = [];
 let pedidoEditando = null;
 let pedidoAtivo = null;
 let dadosPedidoURLAplicados = false;
+let orcamentoOrigemId = "";
 const emProducao = new URLSearchParams(window.location.search).get("aba") === "producao";
 
 document.getElementById("visaoOperacao").style.display = emProducao ? "block" : "none";
@@ -299,6 +329,7 @@ function preencherPedidoDaURL() {
     const qtd = params.get("qtd") || "";
     const valor = params.get("valor") || "";
     const custo = params.get("custo") || "";
+    const orcamentoId = params.get("orcamentoId") || "";
  
     if (!cliente && !telefone && !produto && !qtd && !valor && !custo) return;
     document.getElementById("cliente").value = cliente;
@@ -307,6 +338,7 @@ function preencherPedidoDaURL() {
     document.getElementById("qtd").value = qtd;
     document.getElementById("valor").value = valor;
     document.getElementById("custo").value = custo;
+    orcamentoOrigemId = orcamentoId;
     document.getElementById("data").value = new Date().toISOString().slice(0, 10);
     if (clienteId && cliente) {
         document.getElementById("cliente").dataset.clienteId = clienteId;
@@ -316,7 +348,89 @@ function preencherPedidoDaURL() {
     dadosPedidoURLAplicados = true;
     window.history.replaceState({}, document.title, "index.html?aba=producao");
 }
- 
+
+async function criarPedidoDoOrcamentoComEstoque(user, dadosPedido) {
+    const orcamentoRef = db.collection("orcamentos").doc(orcamentoOrigemId);
+    const configuracaoRef = db.collection("configuracoes").doc("orcamento");
+    const pedidoRef = db.collection("pedidos").doc();
+
+    await db.runTransaction(async transaction => {
+        const orcamentoDoc = await transaction.get(orcamentoRef);
+        const configuracaoDoc = await transaction.get(configuracaoRef);
+        if (!orcamentoDoc.exists || orcamentoDoc.data().usuario !== user.uid) {
+            throw new Error("Orçamento de origem não encontrado ou sem permissão.");
+        }
+        if (orcamentoDoc.data().convertidoEmPedidoId) {
+            throw new Error("Este orçamento já foi convertido em pedido.");
+        }
+
+        const itens = Array.isArray(orcamentoDoc.data().itensInsumos) ? orcamentoDoc.data().itensInsumos : [];
+        const consumoPorInsumo = new Map();
+        itens.forEach(item => {
+            const id = String(item.id || "");
+            const quantidadePorPeca = Number(item.quantidade || 0);
+            if (!id || !Number.isFinite(quantidadePorPeca) || quantidadePorPeca <= 0) {
+                throw new Error("Há um insumo inválido no orçamento.");
+            }
+            consumoPorInsumo.set(id, (consumoPorInsumo.get(id) || 0) + (quantidadePorPeca * Number(dadosPedido.qtd)));
+        });
+
+        const insumosCadastrados = configuracaoDoc.exists && Array.isArray(configuracaoDoc.data().insumosCadastrados)
+            ? configuracaoDoc.data().insumosCadastrados
+            : [];
+        const insumosAtualizados = insumosCadastrados.map(insumo => ({ ...insumo }));
+        const filamentosCadastrados = configuracaoDoc.exists && Array.isArray(configuracaoDoc.data().filamentos)
+            ? configuracaoDoc.data().filamentos
+            : [];
+        const filamentosAtualizados = filamentosCadastrados.map(filamento => ({ ...filamento }));
+        let filamentoControladoConsumido = false;
+
+        consumoPorInsumo.forEach((quantidadeConsumida, id) => {
+            const insumo = insumosAtualizados.find(item => item.id === id);
+            if (!insumo) throw new Error("Um insumo do orçamento foi excluído do cadastro. Cadastre-o novamente antes de criar o pedido.");
+            const estoqueAtual = Number(insumo.estoqueAtual || 0);
+            if (!Number.isFinite(estoqueAtual) || estoqueAtual < quantidadeConsumida) {
+                throw new Error(`Estoque insuficiente para ${insumo.nome || "insumo"}. Disponível: ${estoqueAtual}, necessário: ${quantidadeConsumida}.`);
+            }
+            insumo.estoqueAtual = estoqueAtual - quantidadeConsumida;
+        });
+
+        const filamentoId = String(orcamentoDoc.data().filamentoId || "");
+        const gramasPorPeca = Number(orcamentoDoc.data().gramatura || 0);
+        if (filamentoId && gramasPorPeca > 0) {
+            const filamento = filamentosAtualizados.find(item => item.id === filamentoId);
+            const consumoEmKg = (gramasPorPeca * Number(dadosPedido.qtd)) / 1000;
+            if (filamento?.controlarEstoque === true) {
+                const estoqueAtual = Number(filamento.estoqueAtual || 0);
+                if (!Number.isFinite(estoqueAtual) || estoqueAtual < consumoEmKg) {
+                    throw new Error(`Estoque insuficiente para o filamento ${filamento.nome || "selecionado"}. Disponível: ${estoqueAtual} kg, necessário: ${consumoEmKg} kg.`);
+                }
+                filamento.estoqueAtual = estoqueAtual - consumoEmKg;
+                filamentoControladoConsumido = true;
+            }
+        }
+
+        transaction.set(pedidoRef, {
+            usuario: user.uid,
+            pedidoId: Date.now(),
+            orcamentoOrigemId,
+            ...dadosPedido,
+            criadoEm: new Date()
+        });
+        if (consumoPorInsumo.size > 0 || filamentoControladoConsumido) {
+            transaction.set(configuracaoRef, {
+                insumosCadastrados: insumosAtualizados,
+                filamentos: filamentosAtualizados
+            }, { merge: true });
+        }
+        transaction.update(orcamentoRef, {
+            status: "Aprovado",
+            convertidoEmPedidoId: pedidoRef.id,
+            convertidoEm: new Date()
+        });
+    });
+}
+
 async function salvar() {
     try {
         const user = auth.currentUser;
@@ -324,6 +438,7 @@ async function salvar() {
  
         const data = document.getElementById("data").value || new Date().toISOString().slice(0, 10);
         const dataPagamento = document.getElementById("dataPagamento").value || "";
+        const dataEntrega = document.getElementById("dataEntrega").value || "";
         const cliente = document.getElementById("cliente").value.trim();
         const telefone = document.getElementById("telefone").value.trim();
         const produto = document.getElementById("produto").value.trim();
@@ -356,7 +471,7 @@ async function salvar() {
         const lucro = total - (qtd * custo);
  
         const dadosPedido = {
-            data, dataPagamento, cliente, clienteId,
+            data, dataPagamento, dataEntrega, cliente, clienteId,
             telefone: telefoneLimpo, produto,
             qtd, valor, custo, total, lucro,
             pagamento, status, pago
@@ -365,6 +480,8 @@ async function salvar() {
         if (pedidoEditando) {
             await db.collection("pedidos").doc(pedidoEditando).update(dadosPedido);
             pedidoEditando = null;
+        } else if (orcamentoOrigemId) {
+            await criarPedidoDoOrcamentoComEstoque(user, dadosPedido);
         } else {
             await db.collection("pedidos").add({
                 usuario: user.uid,
@@ -383,12 +500,13 @@ async function salvar() {
 }
  
 function limparCampos() {
-    ["data","dataPagamento","cliente","telefone","produto","qtd","valor","custo"].forEach(id => {
+    ["data","dataPagamento","dataEntrega","cliente","telefone","produto","qtd","valor","custo"].forEach(id => {
         document.getElementById(id).value = "";
     });
     delete document.getElementById("cliente").dataset.clienteId;
     document.getElementById("pago").value = "Não";
     document.getElementById("pagamento").value = "Pix";
+    orcamentoOrigemId = "";
 }
  
 async function carregarPedidos() {
@@ -482,7 +600,8 @@ function renderPedidosCatalogo() {
                 <small>${escaparHTML(p.telefone || "")}</small><br><br>
                 ${itens || "Sem itens"}
                 ${observacao}
-                <p><strong>Total:</strong> R$ ${Number(p.total || 0).toFixed(2)}</p>
+                <p><strong>Total informado:</strong> R$ ${Number(p.total || 0).toFixed(2)}</p>
+                <small style="color:#777;">Preço e estoque serão conferidos antes da aprovação.</small>
                 <button onclick="aprovarPedidoCatalogo(${indice})">Aprovar e virar pedido</button>
                 <button onclick="arquivarPedidoCatalogo(${indice})" style="background:#888;">Arquivar</button>
             </div>
@@ -514,47 +633,61 @@ async function aprovarPedidoCatalogo(indice) {
 
         const dataHoje = new Date().toISOString().slice(0, 10);
         await db.runTransaction(async transaction => {
-            const produtosParaBaixar = [];
-
-            for (const item of itens) {
-                const prontaEntrega = item.disponibilidade === "pronta_entrega";
-                if (!prontaEntrega || !item.produtoId) continue;
-
-                const produtoRef = db.collection("produtos").doc(item.produtoId);
-                const produtoDoc = await transaction.get(produtoRef);
-                if (!produtoDoc.exists) {
-                    throw new Error(`Produto não encontrado para baixa de estoque: ${item.nome || item.produtoId}`);
+            // O conteúdo de pedidosCatalogo veio de uma tela pública. Portanto,
+            // nunca usamos nome, preço, disponibilidade ou subtotal enviados pelo cliente.
+            const quantidadesPorProduto = new Map();
+            itens.forEach(item => {
+                const produtoId = String(item.produtoId || "").trim();
+                const qtd = Number(item.qtd);
+                if (!produtoId || !Number.isInteger(qtd) || qtd < 1 || qtd > 100) {
+                    throw new Error("Pedido com produto ou quantidade inválida.");
                 }
+                const novaQtd = (quantidadesPorProduto.get(produtoId) || 0) + qtd;
+                if (novaQtd > 100) throw new Error("Quantidade máxima por produto é 100 unidades.");
+                quantidadesPorProduto.set(produtoId, novaQtd);
+            });
+
+            const itensConferidos = [];
+            const produtosParaBaixar = [];
+            for (const [produtoId, qtd] of quantidadesPorProduto) {
+                const produtoRef = db.collection("produtos").doc(produtoId);
+                const produtoDoc = await transaction.get(produtoRef);
+                if (!produtoDoc.exists) throw new Error(`Produto não encontrado: ${produtoId}.`);
 
                 const produto = produtoDoc.data();
-                const estoqueAtual = Number(produto.estoquePronto || 0);
-                const qtdSolicitada = Number(item.qtd || 1);
-
-                if (estoqueAtual < qtdSolicitada) {
-                    throw new Error(`Estoque insuficiente para ${item.nome || produto.nome}. Disponível: ${estoqueAtual}, pedido: ${qtdSolicitada}.`);
+                const valor = Number(produto.preco);
+                if (!produto.ativo || !Number.isFinite(valor) || valor <= 0) {
+                    throw new Error(`Produto indisponível: ${produto.nome || produtoId}.`);
                 }
 
-                produtosParaBaixar.push({ ref: produtoRef, estoqueAtual, qtdSolicitada });
+                const prontaEntrega = produto.disponibilidade === "pronta_entrega";
+                const estoqueAtual = Number(produto.estoquePronto || 0);
+                if (prontaEntrega && estoqueAtual < qtd) {
+                    throw new Error(`Estoque insuficiente para ${produto.nome}. Disponível: ${estoqueAtual}, pedido: ${qtd}.`);
+                }
+                if (prontaEntrega) produtosParaBaixar.push({ ref: produtoRef, estoqueAtual, qtd });
+                itensConferidos.push({ produtoId, nome: produto.nome || "Produto", qtd, valor, prontaEntrega });
             }
 
-            itens.forEach((item, i) => {
-                const qtd = Number(item.qtd || 1);
-                const valor = Number(item.preco || 0);
+            let totalAprovado = 0;
+            itensConferidos.forEach((item, i) => {
                 const custo = 0;
-                const total = qtd * valor;
+                const total = item.qtd * item.valor;
+                totalAprovado += total;
                 const ref = db.collection("pedidos").doc();
                 transaction.set(ref, {
                     usuario: user.uid,
                     pedidoId: Date.now() + i,
                     data: dataHoje,
                     dataPagamento: "",
+                    dataEntrega: "",
                     cliente,
                     clienteId,
                     telefone,
-                    produto: item.nome || "Produto do catálogo",
-                    produtoId: item.produtoId || "",
-                    qtd,
-                    valor,
+                    produto: item.nome,
+                    produtoId: item.produtoId,
+                    qtd: item.qtd,
+                    valor: item.valor,
                     custo,
                     total,
                     lucro: total,
@@ -569,13 +702,21 @@ async function aprovarPedidoCatalogo(indice) {
 
             produtosParaBaixar.forEach(item => {
                 transaction.update(item.ref, {
-                    estoquePronto: Math.max(0, item.estoqueAtual - item.qtdSolicitada),
+                    estoquePronto: Math.max(0, item.estoqueAtual - item.qtd),
                     atualizadoEm: new Date()
                 });
             });
 
             transaction.update(db.collection("pedidosCatalogo").doc(pedidoCatalogo.docId), {
                 status: "aprovado",
+                itensAprovados: itensConferidos.map(item => ({
+                    produtoId: item.produtoId,
+                    nome: item.nome,
+                    qtd: item.qtd,
+                    preco: item.valor,
+                    subtotal: item.qtd * item.valor
+                })),
+                totalAprovado,
                 aprovadoEm: new Date(),
                 aprovadoPor: user.uid
             });
@@ -583,7 +724,7 @@ async function aprovarPedidoCatalogo(indice) {
 
         await carregarPedidosCatalogo();
         await carregarPedidos();
-        alert("Pedido do catálogo aprovado. O estoque de pronta entrega foi atualizado.");
+        alert("Pedido aprovado com preços e estoque conferidos. O estoque de pronta entrega foi atualizado.");
     } catch (erro) {
         console.error("Erro ao aprovar pedido do catálogo:", erro);
         alert(`Não foi possível aprovar o pedido do catálogo: ${erro.code || ""} ${erro.message || erro}`);
@@ -655,26 +796,81 @@ async function registrarPagamento() {
     if (!user || !pedido || !Number.isFinite(valor) || valor <= 0) { alert("Informe um valor de pagamento válido."); return; }
     const saldo = saldoPedido(pedido);
     if (valor > saldo + 0.009) { alert(`O valor informado é maior que o saldo de R$ ${saldo.toFixed(2)}.`); return; }
+    const botao = document.getElementById("btnRegistrarPagamento");
+    botao.disabled = true;
     try {
-        await db.collection("pagamentos").add({ usuario: user.uid, pedidoId: pedido.docId, clienteId: pedido.clienteId || "", cliente: pedido.cliente || "", data, forma, valor, criadoEm: new Date() });
-        await db.collection("pedidos").doc(pedido.docId).update({ pago: valor >= saldo - 0.009 ? "Sim" : "Não" });
+        const pedidoRef = db.collection("pedidos").doc(pedido.docId);
+        const pagamentosQuery = db.collection("pagamentos")
+            .where("usuario", "==", user.uid)
+            .where("pedidoId", "==", pedido.docId);
+        await db.runTransaction(async transaction => {
+            const pedidoDoc = await transaction.get(pedidoRef);
+            const pagamentosDoc = await transaction.get(pagamentosQuery);
+            if (!pedidoDoc.exists || pedidoDoc.data().usuario !== user.uid) {
+                throw new Error("Pedido não encontrado ou sem permissão.");
+            }
+
+            const pedidoAtual = pedidoDoc.data();
+            const total = Math.round(Number(pedidoAtual.total || 0) * 100);
+            const recebido = pagamentosDoc.docs.reduce((soma, doc) => soma + Math.round(Number(doc.data().valor || 0) * 100), 0);
+            const saldoAtual = total - recebido;
+            const valorCentavos = Math.round(valor * 100);
+            if (total <= 0 || saldoAtual <= 0) throw new Error("Este pedido já está quitado.");
+            if (valorCentavos > saldoAtual) throw new Error(`O valor informado é maior que o saldo de R$ ${(saldoAtual / 100).toFixed(2)}.`);
+
+            transaction.set(db.collection("pagamentos").doc(), {
+                usuario: user.uid,
+                pedidoId: pedido.docId,
+                clienteId: pedidoAtual.clienteId || "",
+                cliente: pedidoAtual.cliente || "",
+                data,
+                forma,
+                valor: valorCentavos / 100,
+                criadoEm: new Date()
+            });
+            transaction.update(pedidoRef, {
+                pago: valorCentavos >= saldoAtual ? "Sim" : "Não",
+                valorRecebido: (recebido + valorCentavos) / 100,
+                atualizadoEm: new Date()
+            });
+        });
         fecharRegistroPagamento();
         await carregarPedidos();
     } catch (erro) {
         console.error("Erro ao registrar pagamento:", erro);
-        alert("Não foi possível registrar o pagamento. Verifique as regras do Firestore.");
+        alert(erro.message || "Não foi possível registrar o pagamento. Verifique as regras do Firestore.");
+    } finally {
+        botao.disabled = false;
     }
 }
  
 async function excluir(docId) {
     if (!confirm("Tem certeza que deseja excluir esse pedido?")) return;
-    await db.collection("pedidos").doc(docId).delete();
-    carregarPedidos();
+    try {
+        const pedidoRef = db.collection("pedidos").doc(docId);
+        const pagamentosQuery = db.collection("pagamentos")
+            .where("usuario", "==", auth.currentUser.uid)
+            .where("pedidoId", "==", docId);
+        await db.runTransaction(async transaction => {
+            const pedidoDoc = await transaction.get(pedidoRef);
+            const pagamentosDoc = await transaction.get(pagamentosQuery);
+            if (!pedidoDoc.exists || pedidoDoc.data().usuario !== auth.currentUser?.uid) {
+                throw new Error("Pedido não encontrado ou sem permissão.");
+            }
+            pagamentosDoc.forEach(pagamento => transaction.delete(pagamento.ref));
+            transaction.delete(pedidoRef);
+        });
+        await carregarPedidos();
+    } catch (erro) {
+        console.error("Erro ao excluir pedido:", erro);
+        alert(erro.message || "Não foi possível excluir o pedido.");
+    }
 }
  
 function editarPedido(p) {
     document.getElementById("data").value = p.data || "";
     document.getElementById("dataPagamento").value = p.dataPagamento || "";
+    document.getElementById("dataEntrega").value = p.dataEntrega || "";
     document.getElementById("cliente").value = p.cliente || "";
     document.getElementById("telefone").value = p.telefone || "";
     if (p.clienteId) {
@@ -697,27 +893,128 @@ function editarPedidoPorId(id) {
     editarPedido(pedido);
 }
  
+function linhaCupom(texto, largura = 32) {
+    const t = String(texto || "");
+    if (t.length >= largura) return t.slice(0, largura);
+    return t;
+}
+
+function centralizarCupom(texto, largura = 32) {
+    const t = String(texto || "");
+    if (t.length >= largura) return t.slice(0, largura);
+    const espaco = Math.floor((largura - t.length) / 2);
+    return " ".repeat(espaco) + t;
+}
+
+function montarTextoCupom(listaPedidos) {
+    const pedidosLista = Array.isArray(listaPedidos) ? listaPedidos : [listaPedidos];
+    const primeiro = pedidosLista[0];
+    const agora = new Date();
+    const dataEmissao = agora.toLocaleDateString("pt-BR");
+    const horaEmissao = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+    let totalGeral = 0;
+    let pagoGeral = 0;
+    let linhasItens = "";
+
+    pedidosLista.forEach((p) => {
+        const total = Number(p.total || 0);
+        const pago = valorPagoPedido(p);
+        totalGeral += total;
+        pagoGeral += pago;
+        const valorUnit = Number(p.valor || 0).toFixed(2);
+        const totalItem = total.toFixed(2);
+        const nomeProduto = String(p.produto || "Produto").slice(0, 28);
+        const qtd = p.qtd || 0;
+
+        // Só o essencial: produto + qtd + valor (sem data de cada pedido)
+        linhasItens += `${nomeProduto}\n`;
+        linhasItens += `${qtd} un x R$ ${valorUnit}  = R$ ${totalItem}\n`;
+    });
+
+    const saldoGeral = Math.max(0, totalGeral - pagoGeral);
+    const situacao = saldoGeral <= 0 ? "PAGO" : (pagoGeral > 0 ? "PARCIAL" : "PENDENTE");
+    const forma = primeiro.pagamento || "Nao informada";
+
+    let texto = "";
+    texto += `${centralizarCupom("LV MAKER")}\n`;
+    texto += `${centralizarCupom("Impressao 3D")}\n`;
+    texto += `--------------------------------\n`;
+    texto += `CUPOM / RECIBO DE PEDIDO\n`;
+    texto += `Emitido: ${dataEmissao} ${horaEmissao}\n`;
+    texto += `--------------------------------\n`;
+    texto += `Cliente: ${primeiro.cliente || "-"}\n`;
+    if (primeiro.telefone) texto += `Tel: ${primeiro.telefone}\n`;
+    texto += `--------------------------------\n`;
+    texto += `ITENS\n`;
+    texto += linhasItens;
+    texto += `--------------------------------\n`;
+    texto += `TOTAL           R$ ${totalGeral.toFixed(2)}\n`;
+    texto += `JA PAGO         R$ ${pagoGeral.toFixed(2)}\n`;
+    texto += `SALDO           R$ ${saldoGeral.toFixed(2)}\n`;
+    texto += `--------------------------------\n`;
+    texto += `Pagamento: ${forma}\n`;
+    texto += `Status: ${situacao}\n`;
+    texto += `--------------------------------\n`;
+    texto += `${centralizarCupom("Obrigado pela preferencia!")}\n`;
+    texto += `${centralizarCupom("LV Maker 3D")}\n`;
+
+    return texto;
+}
+
 function gerarRecibo(docId) {
     const p = pedidos.find(x => x.docId === docId);
     if (!p) return;
     pedidoAtivo = p;
-    document.getElementById("recibo").innerHTML = `
-        <h4>LV Maker</h4>
-        <b>Data do Pedido:</b> ${formatarData(p.data)}<br>
-        <b>Data de Pagamento:</b> ${p.dataPagamento ? formatarData(p.dataPagamento) : "Não informada"}<br>
-        <b>Cliente:</b> ${escaparHTML(p.cliente)}<br>
-        <b>Telefone:</b> ${escaparHTML(p.telefone)}<br>
-        <b>Produto:</b> ${escaparHTML(p.produto)}<br>
-        <b>Quantidade:</b> ${p.qtd}<br>
-        <b>Total:</b> R$ ${Number(p.total).toFixed(2)}<br>
-        <b>Já pago:</b> R$ ${valorPagoPedido(p).toFixed(2)}<br>
-        <b>Saldo:</b> R$ ${saldoPedido(p).toFixed(2)}<br>
-        <b>Forma de pagamento:</b> ${escaparHTML(p.pagamento)}<br>
-        <b>Status do pagamento:</b> ${situacaoPagamento(p)}
-    `;
+    const texto = montarTextoCupom(p);
+    document.getElementById("recibo").innerHTML = `<pre class="cupom-fiscal">${escaparHTML(texto)}</pre>`;
 }
- 
-// ─── VERIFICA PAGAMENTO VENCIDO ───────────────────
+
+function parseDataLocal(dataStr) {
+    if (!dataStr) return null;
+    const valor = String(dataStr);
+    const iso = valor.includes("/")
+        ? valor.split("/").reverse().join("-")
+        : valor;
+    const d = new Date(iso + "T00:00:00");
+    return isNaN(d.getTime()) ? null : d;
+}
+
+function entregaAtrasada(p) {
+    if (!p.dataEntrega) return false;
+    if (p.status === "Entregue" || p.status === "Pronto") return false;
+    const dataEnt = parseDataLocal(p.dataEntrega);
+    if (!dataEnt) return false;
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    return dataEnt < hoje;
+}
+
+function entregaProxima(p) {
+    if (!p.dataEntrega) return false;
+    if (p.status === "Entregue" || p.status === "Pronto") return false;
+    if (entregaAtrasada(p)) return false;
+    const dataEnt = parseDataLocal(p.dataEntrega);
+    if (!dataEnt) return false;
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const limite = new Date(hoje);
+    limite.setDate(limite.getDate() + 2);
+    return dataEnt >= hoje && dataEnt <= limite;
+}
+
+function htmlDataEntrega(p) {
+    if (!p.dataEntrega) return "<span style='color:#999'>-</span>";
+    const dataFmt = formatarData(p.dataEntrega);
+    if (entregaAtrasada(p)) {
+        return `<span class="badge-entrega badge-entrega-atrasada" title="Entrega atrasada">${dataFmt} ⚠️</span>`;
+    }
+    if (entregaProxima(p)) {
+        return `<span class="badge-entrega badge-entrega-proxima" title="Entrega nos próximos 2 dias">${dataFmt}</span>`;
+    }
+    return `<span class="badge-entrega">${dataFmt}</span>`;
+}
+
 function pagamentoVencido(p) {
     if (saldoPedido(p) <= 0) return false;
     if (!p.dataPagamento) return false;
@@ -762,27 +1059,39 @@ function render() {
     const tabela = document.getElementById("tabelaOperacao");
     tabela.innerHTML = "";
     let totalMes = 0;
+    let contAguardando = 0;
+    let contImprimindo = 0;
+    let contPronto = 0;
+    let contEntregue = 0;
+    let contAtrasados = 0;
+    let contPendente = 0;
  
     pedidos.forEach(p => {
         if (busca && !(p.cliente || "").toLowerCase().includes(busca)) return;
         if (mesSelecionado && obterMesPedido(p.data) !== mesSelecionado) return;
+
+        const st = p.status || "Aguardando";
+        if (st === "Aguardando") contAguardando++;
+        else if (st === "Imprimindo") contImprimindo++;
+        else if (st === "Pronto") contPronto++;
+        else if (st === "Entregue") contEntregue++;
+        if (entregaAtrasada(p)) contAtrasados++;
+        if (saldoPedido(p) > 0) contPendente++;
  
         const tr = document.createElement("tr");
         const vencido = pagamentoVencido(p);
+        const atrasada = entregaAtrasada(p);
  
-        // Cor de status de entrega
         if (p.status === "Aguardando") tr.style.backgroundColor = "#ffab76";
         else if (p.status === "Imprimindo") tr.style.backgroundColor = "#fff3cd";
         else if (p.status === "Pronto") tr.style.backgroundColor = "#d6d6d6";
         else if (p.status === "Entregue") tr.style.backgroundColor = "#c6efce";
  
-        // Alerta de pagamento vencido — borda vermelha na linha
-        if (vencido) {
+        if (vencido || atrasada) {
             tr.style.outline = "2px solid #e74c3c";
             tr.style.outlineOffset = "-2px";
         }
  
-        // Badge de vencido na célula de data de pagamento
         const badgeVencido = vencido
             ? ` <span title="Pagamento vencido" style="color:#e74c3c;font-size:14px;">⚠️</span>`
             : "";
@@ -791,6 +1100,7 @@ function render() {
             <td><input type="checkbox" class="selecionado" data-id="${p.docId}"></td>
             <td>${formatarData(p.data)}</td>
             <td>${p.dataPagamento ? formatarData(p.dataPagamento) + badgeVencido : "-"}</td>
+            <td>${htmlDataEntrega(p)}</td>
             <td>
                 <button class="link-cliente" onclick="abrirFichaClientePorPedido('${p.docId}')">
                     ${escaparHTML(p.cliente || "-")}
@@ -832,6 +1142,12 @@ function render() {
     });
  
     document.getElementById("totalMesOperacao").innerText = totalMes.toFixed(2);
+    document.getElementById("dashAguardando").innerText = contAguardando;
+    document.getElementById("dashImprimindo").innerText = contImprimindo;
+    document.getElementById("dashPronto").innerText = contPronto;
+    document.getElementById("dashEntregue").innerText = contEntregue;
+    document.getElementById("dashAtrasados").innerText = contAtrasados;
+    document.getElementById("dashPendente").innerText = contPendente;
 }
 
 function obterMesPedido(data) {
@@ -846,16 +1162,10 @@ function gerarReciboSelecionado() {
     if (selecionados.length === 0) { alert("Selecione pelo menos um pedido."); return; }
  
     let pedidosSelecionados = [];
-    let totalGeral = 0;
-    let cliente = "";
  
     selecionados.forEach(check => {
         const pedido = pedidos.find(p => p.docId === check.getAttribute("data-id"));
-        if (pedido) {
-            pedidosSelecionados.push(pedido);
-            totalGeral += Number(pedido.total || 0);
-            cliente = pedido.cliente;
-        }
+        if (pedido) pedidosSelecionados.push(pedido);
     });
 
     const clientesDoRecibo = new Set(pedidosSelecionados.map(p => {
@@ -866,23 +1176,9 @@ function gerarReciboSelecionado() {
         alert("Selecione apenas pedidos da mesma cliente para gerar e enviar um único recibo.");
         return;
     }
- 
-    let html = `<h4>LV Maker</h4><b>Cliente:</b> ${escaparHTML(cliente)}<br><br>`;
-    pedidosSelecionados.forEach(p => {
-        html += `
-            Data do Pedido: ${formatarData(p.data)}<br>
-            Data de Pagamento: ${p.dataPagamento ? formatarData(p.dataPagamento) : "Não informada"}<br>
-            Produto: ${escaparHTML(p.produto)}<br>
-            Quantidade: ${p.qtd}<br>
-            Total: R$ ${Number(p.total || 0).toFixed(2)}<br>
-            Já pago: R$ ${valorPagoPedido(p).toFixed(2)}<br>
-            Saldo: R$ ${saldoPedido(p).toFixed(2)}<br>
-            Status do pagamento: ${situacaoPagamento(p)}<br><hr>
-        `;
-    });
-    html += `<b>Total Geral:</b> R$ ${totalGeral.toFixed(2)}`;
-    document.getElementById("recibo").innerHTML = html;
-    // Todos os pedidos selecionados são da mesma cliente: usa o telefone dela.
+
+    const texto = montarTextoCupom(pedidosSelecionados);
+    document.getElementById("recibo").innerHTML = `<pre class="cupom-fiscal">${escaparHTML(texto)}</pre>`;
     pedidoAtivo = pedidosSelecionados[0];
 }
  
@@ -890,8 +1186,8 @@ function enviarWhatsApp() {
     if (!pedidoAtivo) { alert("Gere um recibo antes de enviar pelo WhatsApp."); return; }
     if (!pedidoAtivo.telefone) { alert("Pedido sem telefone cadastrado."); return; }
     const telefone = normalizarTelefoneWhatsApp(pedidoAtivo.telefone);
-    const reciboHTML = document.getElementById("recibo").innerText;
-    const mensagem = encodeURIComponent(`🧾 *LV Maker*\n\n${reciboHTML}\n\nObrigado pela preferência 🙌`);
+    const reciboTexto = document.getElementById("recibo").innerText.trim();
+    const mensagem = encodeURIComponent(reciboTexto);
     window.open(`https://wa.me/${telefone}?text=${mensagem}`, "_blank");
 }
 
@@ -903,9 +1199,10 @@ function normalizarTelefoneWhatsApp(telefone) {
 function montarMensagemPedido(p, tipo) {
     const total = Number(p.total || 0).toFixed(2);
     const dataPedido = formatarData(p.data);
+    const dataEntregaTxt = p.dataEntrega ? `\nPrevisão de entrega: ${formatarData(p.dataEntrega)}` : "";
  
-    if (tipo === "confirmar") return `Olá, ${p.cliente}!\n\nSeu pedido foi confirmado na LV Maker 3D.\n\nProduto: ${p.produto}\nQuantidade: ${p.qtd}\nTotal: R$ ${total}\nData do pedido: ${dataPedido}\n\nAssim que eu iniciar a impressão te aviso por aqui.`;
-    if (tipo === "imprimindo") return `Olá, ${p.cliente}!\n\nPassando para avisar que seu pedido entrou em impressão.\n\nProduto: ${p.produto}\nQuantidade: ${p.qtd}\n\nTe aviso assim que ficar pronto.`;
+    if (tipo === "confirmar") return `Olá, ${p.cliente}!\n\nSeu pedido foi confirmado na LV Maker 3D.\n\nProduto: ${p.produto}\nQuantidade: ${p.qtd}\nTotal: R$ ${total}\nData do pedido: ${dataPedido}${dataEntregaTxt}\n\nAssim que eu iniciar a impressão te aviso por aqui.`;
+    if (tipo === "imprimindo") return `Olá, ${p.cliente}!\n\nPassando para avisar que seu pedido entrou em impressão.\n\nProduto: ${p.produto}\nQuantidade: ${p.qtd}${dataEntregaTxt}\n\nTe aviso assim que ficar pronto.`;
     if (tipo === "pronto") return `Olá, ${p.cliente}!\n\nSeu pedido ficou pronto!\n\nProduto: ${p.produto}\nQuantidade: ${p.qtd}\nTotal: R$ ${total}\n\nPode me chamar por aqui para combinarmos a retirada ou entrega.`;
     if (tipo === "retirada") return `Olá, ${p.cliente}!\n\nSeu pedido já está pronto para retirada.\n\nProduto: ${p.produto}\nQuantidade: ${p.qtd}\n\nQuando puder, me avise para combinarmos o melhor horário.`;
     return `Olá, ${p.cliente}!\n\nPassando para lembrar do pagamento pendente do seu pedido na LV Maker 3D.\n\nProduto: ${p.produto}\nQuantidade: ${p.qtd}\nTotal: R$ ${total}\nJá pago: R$ ${valorPagoPedido(p).toFixed(2)}\nSaldo pendente: R$ ${saldoPedido(p).toFixed(2)}\nForma de pagamento: ${p.pagamento || "não informada"}\n\nQualquer dúvida estou à disposição.`;
@@ -965,9 +1262,9 @@ Qualquer dúvida estou à disposição 🙌`
  
 function exportarCSV() {
     if (pedidos.length === 0) { alert("Nenhum pedido para exportar."); return; }
-    let csv = "Data Pedido;Data Pagamento;Cliente;Telefone;Produto;Quantidade;Valor Unitario;Total;Lucro;Pagamento;Status;Pago\n";
+    let csv = "Data Pedido;Data Pagamento;Data Entrega;Cliente;Telefone;Produto;Quantidade;Valor Unitario;Total;Lucro;Pagamento;Status;Pago\n";
     pedidos.forEach(p => {
-        csv += `${p.data||""};${p.dataPagamento||""};${p.cliente||""};"'${p.telefone||""}";${p.produto||""};${p.qtd||0};${p.valor||0};${p.total||0};${p.lucro||0};${p.pagamento||""};${p.status||""};${p.pago||""}\n`;
+        csv += `${p.data||""};${p.dataPagamento||""};${p.dataEntrega||""};${p.cliente||""};"'${p.telefone||""}";${p.produto||""};${p.qtd||0};${p.valor||0};${p.total||0};${p.lucro||0};${p.pagamento||""};${p.status||""};${p.pago||""}\n`;
     });
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
