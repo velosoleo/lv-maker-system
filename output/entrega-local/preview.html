@@ -1,0 +1,20 @@
+<!doctype html><html lang="pt-br"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"><body><h1>Prévia local — entrega própria</h1><section class="card">
+    <h2>Sua entrega em Guaramirim e Jaraguá do Sul — SC</h2>
+    <label for="entregaLocal">Oferecer entrega própria</label>
+    <select id="entregaLocal"><option value="nao">Ainda não</option><option value="sim">Sim, após ativação da integração</option></select>
+    <p>Cidades atendidas pela sua entrega:</p>
+    <label style="display:flex;align-items:center;gap:8px"><input id="cidadeGuaramirim" type="checkbox" style="width:18px;height:18px;margin:0"> Guaramirim</label>
+    <label style="display:flex;align-items:center;gap:8px"><input id="cidadeJaragua" type="checkbox" style="width:18px;height:18px;margin:0"> Jaraguá do Sul</label>
+    <label for="taxaLocal">Taxa de entrega (R$)</label>
+    <input id="taxaLocal" type="number" min="0" max="1000" step="0.01" placeholder="Defina o valor; 0 para gratuita">
+    <label for="gratisAcimaLocal">Entrega grátis em compras acima de (R$) — opcional</label>
+    <input id="gratisAcimaLocal" type="number" min="0.01" max="100000" step="0.01" placeholder="Ex.: 100; deixe vazio para desativar">
+    <p>Considera os produtos após os descontos, sem incluir frete. O valor deve ser maior que o informado: com R$ 100,00, a entrega grátis começa em R$ 100,01. Vale somente para sua entrega nas cidades selecionadas; transportadoras mantêm o preço normal.</p>
+    <label for="prazoLocal">Prazo de entrega após ficar pronto (dias úteis)</label>
+    <input id="prazoLocal" type="number" min="0" max="30" step="1" placeholder="Informe o prazo">
+    <label for="bairrosLocal">Bairros atendidos — um por linha</label>
+    <textarea id="bairrosLocal" rows="4" maxlength="2000" placeholder="Deixe vazio se atender todos os bairros das cidades selecionadas" style="width:100%;"></textarea>
+    <p>Se preencher bairros, a mesma lista restringe as duas cidades.</p>
+    <label for="retirada">Oferecer retirada no local sem frete</label>
+    <select id="retirada"><option value="nao">Ainda não</option><option value="sim">Sim, após ativação da integração</option></select>
+</section><script>document.getElementById("entregaLocal").value="sim";document.getElementById("cidadeGuaramirim").checked=true;document.getElementById("cidadeJaragua").checked=true;document.getElementById("taxaLocal").value="15";document.getElementById("gratisAcimaLocal").value="100";</script></body></html>

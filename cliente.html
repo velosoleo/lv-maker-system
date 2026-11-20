@@ -7,6 +7,9 @@
 <link rel="stylesheet" href="style.css">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f243e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script defer src="pwa.js?v=66"></script>
 </head>
 
 <body>
@@ -20,6 +23,7 @@
     <a href="orcamentos.html">Orçamentos</a>
     <a href="financeiro.html">📊 Financeiro</a>
     <a href="produtos.html">🛍️ Produtos</a>
+    <a href="entregas.html">🚚 Entregas</a>
 </nav>
 
 <div class="card">
@@ -43,6 +47,8 @@
             <strong>Pedidos</strong>
             <p><span id="qtdPedidos">0</span></p>
         </div>
+        <div class="box"><strong>Última compra</strong><p id="ultimaCompraCliente">-</p></div>
+        <div class="box"><strong>Produto mais comprado</strong><p id="produtoFavoritoCliente">-</p></div>
     </div>
 
     <div style="margin-top:15px;">
@@ -56,6 +62,8 @@
     <h3>Dados do Cliente</h3>
     <input id="clienteNome" placeholder="Nome do cliente">
     <input id="clienteTelefone" placeholder="Telefone com DDD">
+    <label for="clienteClassificacao">Classificação</label>
+    <select id="clienteClassificacao"><option value="normal">Normal</option><option value="recorrente">Recorrente</option><option value="parcelado">Parcelado</option><option value="inadimplente">Inadimplente</option></select>
     <textarea id="clienteObservacoes" placeholder="Observações sobre o cliente..." style="width:100%;max-width:600px;min-height:80px;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:14px;font-family:Arial,sans-serif;resize:vertical;margin:5px;"></textarea>
     <button onclick="salvarCliente()">Salvar Cliente</button>
 </div>
@@ -73,6 +81,7 @@
                 <th>Pago</th>
                 <th>Saldo</th>
                 <th>Status</th>
+                <th>Ação</th>
             </tr>
         </thead>
         <tbody id="tabela"></tbody>
@@ -97,6 +106,11 @@
     </table>
 </div>
 
+<div class="card">
+    <h3>📅 Parcelamentos</h3>
+    <div id="parcelamentosCliente"></div>
+</div>
+
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -104,6 +118,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
 
+<script src="app.js?v=83"></script>
+<script src="financeiro-regras.js?v=83"></script>
+<script src="estado-area.js?v=66"></script>
 <script>
 const firebaseConfig = {
     apiKey: "AIzaSyASqz8XoAhyD6w-klOr4HXlj_4URkQlBU8",
@@ -125,10 +142,12 @@ const auth = firebase.auth();
 let pedidos = [];
 let pagamentos = [];
 let orcamentosCliente = [];
+let parcelamentosCliente = [];
 let clienteAtual = null;
 const params = new URLSearchParams(window.location.search);
 const clienteIdParam = params.get("id") || "";
 const nomeCliente = params.get("nome") || "";
+const telefoneParam = LV.telefone(params.get("telefone"));
 
 function escaparHTML(valor) {
     return String(valor ?? "")
@@ -149,17 +168,24 @@ function normalizarTexto(valor) {
         .replace(/^-+|-+$/g, "");
 }
 
-function gerarClienteId(userId, nome) {
-    const slug = normalizarTexto(nome) || "cliente";
-    return `${userId}_${slug}`.slice(0, 120);
+function pertenceAoCliente(item) {
+    const id = clienteAtual?.docId || clienteIdParam;
+    if (item.clienteId) return Boolean(id) && item.clienteId === id;
+    // Registros antigos sem vínculo são mostrados só na ficha antiga por nome e telefone.
+    if (id) return false;
+    return LV.nome(item.cliente) === LV.nome(nomeCliente) && LV.telefone(item.telefone) === telefoneParam;
 }
+
+const protecaoArea = LVEstadoArea.proteger(document.getElementById('sistema'));
 
 auth.onAuthStateChanged(user => {
     if (user) {
         document.getElementById("sistema").style.display = "block";
-        carregarCliente(user).then(() => {
-            carregarPedidos(user);
-            carregarOrcamentos(user);
+        protecaoArea.executar(async () => {
+            await carregarCliente(user);
+            await carregarPedidos(user);
+            await carregarParcelamentosCliente(user);
+            await carregarOrcamentos(user);
         });
     } else {
         window.location.href = "index.html";
@@ -168,15 +194,9 @@ auth.onAuthStateChanged(user => {
 
 async function carregarCliente(user) {
     if (clienteIdParam) {
+        clienteAtual = null;
         const doc = await db.collection("clientes").doc(clienteIdParam).get();
-        if (doc.exists && doc.data().usuario === user.uid) {
-            clienteAtual = { docId: doc.id, ...doc.data() };
-        }
-    }
-
-    if (!clienteAtual && nomeCliente) {
-        const id = gerarClienteId(user.uid, nomeCliente);
-        const doc = await db.collection("clientes").doc(id).get();
+        if (!doc.exists || doc.data().usuario !== user.uid) throw new Error('Cliente indisponível.');
         if (doc.exists && doc.data().usuario === user.uid) {
             clienteAtual = { docId: doc.id, ...doc.data() };
         }
@@ -184,23 +204,23 @@ async function carregarCliente(user) {
 
     const nome = clienteAtual?.nome || nomeCliente;
     document.getElementById("clienteNome").value = nome;
-    document.getElementById("clienteTelefone").value = clienteAtual?.telefone || "";
+    document.getElementById("clienteTelefone").value = clienteAtual?.telefone || telefoneParam;
     document.getElementById("clienteObservacoes").value = clienteAtual?.observacoes || "";
+    document.getElementById("clienteClassificacao").value = clienteAtual?.classificacao || "normal";
 }
 
 async function carregarPedidos(user) {
     pedidos = [];
     pagamentos = [];
-    const snapshot = await db.collection("pedidos")
-        .where("usuario", "==", user.uid)
-        .get();
+    let consulta = db.collection("pedidos").where("usuario", "==", user.uid);
+    const id = clienteAtual?.docId || clienteIdParam;
+    if (id) consulta = consulta.where("clienteId", "==", id);
+    const snapshot = await consulta.get();
 
     snapshot.forEach(doc => {
         const pedido = doc.data();
-        if (!pedido.cliente || !pedido.produto || pedido.total <= 0) return;
-        const mesmoClienteId = clienteAtual?.docId && pedido.clienteId === clienteAtual.docId;
-        const mesmoNome = nomeCliente && pedido.cliente.toLowerCase() === nomeCliente.toLowerCase();
-        if (!mesmoClienteId && !mesmoNome) return;
+        if (pedido.excluido === true || !pedido.cliente || !pedido.produto || pedido.total <= 0) return;
+        if (!pertenceAoCliente(pedido)) return;
         pedido.docId = doc.id;
         pedidos.push(pedido);
     });
@@ -211,18 +231,40 @@ async function carregarPedidos(user) {
         return dataA - dataB;
     });
 
-    try {
-        const pagamentosSnapshot = await db.collection("pagamentos").where("usuario", "==", user.uid).get();
-        pagamentosSnapshot.forEach(doc => pagamentos.push({ docId: doc.id, ...doc.data() }));
-    } catch (erro) {
-        console.warn("Não foi possível carregar pagamentos:", erro);
-    }
+    pagamentos = await carregarPagamentosCliente(user);
 
     renderCliente();
 }
 
+async function carregarPagamentosCliente(user) {
+    const ids = pedidos.map(p => p.docId);
+    const resultados = [];
+    // Lotes pequenos preservam compatibilidade e limitam consultas simultâneas.
+    for (let i = 0; i < ids.length; i += 30) {
+        const consultas = [];
+        for (let j = i; j < Math.min(i + 30, ids.length); j += 10) {
+            consultas.push(db.collection("pagamentos").where("usuario", "==", user.uid)
+                .where("pedidoId", "in", ids.slice(j, j + 10)).get());
+        }
+        const snapshots = await Promise.all(consultas);
+        snapshots.forEach(snapshot => snapshot.forEach(doc => resultados.push({ docId: doc.id, ...doc.data() })));
+    }
+    return resultados;
+}
+
+async function carregarParcelamentosCliente(user) {
+    const snapshot = await db.collection("parcelamentosClientes").where("usuario", "==", user.uid).get();
+    parcelamentosCliente = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() })).filter(pertenceAoCliente);
+    const area = document.getElementById("parcelamentosCliente");
+    area.innerHTML = parcelamentosCliente.length ? parcelamentosCliente.map(grupo => {
+        const pagas = (grupo.parcelas || []).filter(p => p.pago).length;
+        const saldo = (grupo.parcelas || []).filter(p => !p.pago).reduce((s,p) => s + Number(p.valor || 0), 0);
+        return `<div class="pedido-entregue-revisao"><div><strong>${pagas}/${grupo.quantidade || (grupo.parcelas || []).length} parcelas pagas</strong><span>Saldo restante: R$ ${saldo.toFixed(2)} · ${(grupo.pedidoIds || []).length} pedido(s)</span></div></div>`;
+    }).join("") : "<p>Nenhum parcelamento conjunto para este cliente.</p>";
+}
+
 function valorPagoPedido(pedido) {
-    const registros = pagamentos.filter(pagamento => pagamento.pedidoId === pedido.docId);
+    const registros = LV.pagamentosDoPedido(pagamentos, pedido.docId);
     if (registros.length > 0) return registros.reduce((total, pagamento) => total + Number(pagamento.valor || 0), 0);
     return pedido.pago === "Sim" ? Number(pedido.total || 0) : 0;
 }
@@ -233,15 +275,14 @@ function saldoPedido(pedido) {
 
 async function carregarOrcamentos(user) {
     orcamentosCliente = [];
-    const snapshot = await db.collection("orcamentos")
-        .where("usuario", "==", user.uid)
-        .get();
+    let consulta = db.collection("orcamentos").where("usuario", "==", user.uid);
+    const id = clienteAtual?.docId || clienteIdParam;
+    if (id) consulta = consulta.where("clienteId", "==", id);
+    const snapshot = await consulta.get();
 
     snapshot.forEach(doc => {
         const o = doc.data();
-        const mesmoClienteId = clienteAtual?.docId && o.clienteId === clienteAtual.docId;
-        const mesmoNome = nomeCliente && o.cliente && o.cliente.toLowerCase() === nomeCliente.toLowerCase();
-        if (!mesmoClienteId && !mesmoNome) return;
+        if (!pertenceAoCliente(o)) return;
         o.docId = doc.id;
         orcamentosCliente.push(o);
     });
@@ -286,6 +327,7 @@ function renderCliente() {
             <td>R$ ${valorPago.toFixed(2)}</td>
             <td>R$ ${saldo.toFixed(2)}</td>
             <td>${escaparHTML(p.status || "-")}</td>
+            <td><button type="button" onclick="repetirPedidoCliente('${p.docId}')">Repetir pedido</button></td>
         `;
 
         tabela.appendChild(tr);
@@ -295,6 +337,20 @@ function renderCliente() {
     document.getElementById("totalPago").innerText = totalPago.toFixed(2);
     document.getElementById("totalPendente").innerText = totalPendente.toFixed(2);
     document.getElementById("qtdPedidos").innerText = pedidos.length;
+    const ultima = pedidos.map(p => p.data || "").filter(Boolean).sort().pop();
+    document.getElementById("ultimaCompraCliente").innerText = ultima ? formatarData(ultima) : "-";
+    const produtos = new Map();
+    pedidos.forEach(p => produtos.set(p.produto || "Produto", (produtos.get(p.produto || "Produto") || 0) + Number(p.qtd || 0)));
+    const favorito = [...produtos.entries()].sort((a, b) => b[1] - a[1])[0];
+    document.getElementById("produtoFavoritoCliente").innerText = favorito ? `${favorito[0]} (${favorito[1]} un.)` : "-";
+}
+
+function repetirPedidoCliente(id) {
+    const p = pedidos.find(item => item.docId === id);
+    if (!p) return;
+    const params = new URLSearchParams({ aba: "producao", clienteId: clienteAtual?.docId || "", cliente: p.cliente || "",
+        telefone: p.telefone || "", produto: p.produto || "", qtd: p.qtd || 1, valor: p.valor || 0, custo: p.custo || 0 });
+    window.location.href = `index.html?${params.toString()}`;
 }
 
 function renderOrcamentosCliente() {
@@ -322,7 +378,7 @@ function renderOrcamentosCliente() {
 function novoPedidoCliente() {
     const nome = document.getElementById("clienteNome").value.trim() || clienteAtual?.nome || nomeCliente;
     const telefone = document.getElementById("clienteTelefone").value.trim() || (pedidos.length > 0 ? pedidos[0].telefone || "" : "");
-    const destino = `index.html?aba=producao&cliente=${encodeURIComponent(nome)}&telefone=${encodeURIComponent(telefone)}`;
+    const destino = `index.html?aba=producao&clienteId=${encodeURIComponent(clienteAtual?.docId || "")}&cliente=${encodeURIComponent(nome)}&telefone=${encodeURIComponent(telefone)}`;
     window.location.href = destino;
 }
 
@@ -333,13 +389,14 @@ async function salvarCliente() {
     const nome = document.getElementById("clienteNome").value.trim();
     const telefone = document.getElementById("clienteTelefone").value.trim().replace(/\D/g, "");
     const observacoes = document.getElementById("clienteObservacoes").value.trim();
+    const classificacao = document.getElementById("clienteClassificacao").value || "normal";
 
     if (!nome) {
         alert("Informe o nome do cliente.");
         return;
     }
 
-    const clienteId = clienteAtual?.docId || gerarClienteId(user.uid, nome);
+    const clienteId = await LV.salvarCliente(db, user, nome, telefone, clienteAtual?.docId || "");
     const ref = db.collection("clientes").doc(clienteId);
     const doc = await ref.get();
     const dados = {
@@ -348,6 +405,7 @@ async function salvarCliente() {
         nomeBusca: normalizarTexto(nome),
         telefone,
         observacoes,
+        classificacao,
         atualizadoEm: new Date()
     };
 
@@ -357,7 +415,16 @@ async function salvarCliente() {
         await ref.set({ ...dados, criadoEm: new Date() });
     }
 
+    // Vincula apenas os registros antigos que estavam nesta ficha, sem alterar outros homônimos.
+    const antigos = [...pedidos.map(p => ({ ...p, colecao: "pedidos" })),
+        ...orcamentosCliente.map(o => ({ ...o, colecao: "orcamentos" }))].filter(item => !item.clienteId);
+    for (let inicio = 0; inicio < antigos.length; inicio += 400) {
+        const batch = db.batch();
+        antigos.slice(inicio, inicio + 400).forEach(item => batch.update(db.collection(item.colecao).doc(item.docId), { clienteId }));
+        await batch.commit();
+    }
     clienteAtual = { docId: clienteId, ...dados };
+    window.history.replaceState({}, document.title, "cliente.html?id=" + encodeURIComponent(clienteId));
     alert("Cliente salvo!");
     renderCliente();
 }
@@ -379,10 +446,10 @@ function enviarCobranca() {
     let totalGeral = 0;
     let linhasPedidos = "";
 
-    pendentes.forEach((p, i) => {
+    pendentes.forEach((p) => {
         const saldo = saldoPedido(p);
         totalGeral += saldo;
-        linhasPedidos += `📦 Pedido ${i + 1}\nProduto: ${p.produto}\nTotal: R$ ${Number(p.total).toFixed(2)}\nJá pago: R$ ${valorPagoPedido(p).toFixed(2)}\nSaldo: R$ ${saldo.toFixed(2)}\n\n`;
+        linhasPedidos += linhaCobrancaCompacta(p.produto, p.qtd || 0, p.valor) + "\n";
     });
 
     const mensagem = encodeURIComponent(
@@ -392,12 +459,34 @@ Olá, ${clienteAtual?.nome || nomeCliente}!
 
 Segue o resumo dos pedidos pendentes:
 
-${linhasPedidos}💰 *Total Geral: R$ ${totalGeral.toFixed(2)}*
+\`\`\`
+${linhasPedidos}${alinharCobranca("TOTAL PENDENTE", `R$ ${dinheiroCobranca(totalGeral)}`)}
+\`\`\`
 
 Qualquer dúvida estou à disposição 🙌`
     );
 
-    window.open(`https://wa.me/55${telefone.replace(/\D/g, "")}?text=${mensagem}`, "_blank");
+    const numero = telefone.replace(/\D/g, "");
+    window.open(`https://wa.me/${numero.startsWith("55") ? numero : "55" + numero}?text=${mensagem}`, "_blank");
+}
+
+function dinheiroCobranca(valor) {
+    return Number(valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function alinharCobranca(esquerda, direita, largura = 40) {
+    const dir = String(direita || "");
+    const esq = String(esquerda || "").slice(0, Math.max(1, largura - dir.length - 1));
+    return esq + " ".repeat(Math.max(1, largura - esq.length - dir.length)) + dir;
+}
+
+function linhaCobrancaCompacta(nome, quantidade, valorUnitario) {
+    const direita = `R$ ${dinheiroCobranca(valorUnitario)}`;
+    const sufixo = ` ${quantidade || 0}un`;
+    const limiteNome = Math.max(1, 40 - direita.length - sufixo.length - 1);
+    const texto = String(nome || "Produto");
+    const nomeCurto = texto.length > limiteNome && limiteNome > 1 ? texto.slice(0, limiteNome - 1) + "…" : texto.slice(0, limiteNome);
+    return alinharCobranca(nomeCurto + sufixo, direita);
 }
 
 function formatarData(data) {

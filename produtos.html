@@ -7,6 +7,10 @@
 <link rel="stylesheet" href="style.css">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f243e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script defer src="pwa.js?v=66"></script>
+<style>#configPromocao > label { display:block; margin-top:12px; } #configPromocao input[type="checkbox"] { width:18px; height:18px; padding:0; margin:0 7px 0 0; vertical-align:middle; } #promocaoProdutos label { margin:10px 0; }</style>
 </head>
 
 <body>
@@ -20,7 +24,8 @@
     <a href="orcamentos.html">Orçamentos</a>
     <a href="financeiro.html">📊 Financeiro</a>
     <a href="produtos.html" class="ativo">🛍️ Produtos</a>
-    <a href="https://lv-maker.web.app/catalogo.html" target="_blank">🛒 Catálogo</a>
+    <a href="https://lv-maker.web.app/catalogo.html" target="_blank">🛒 Loja virtual</a>
+    <a href="entregas.html">🚚 Entregas</a>
 </nav>
 
 <!-- BANNER -->
@@ -37,12 +42,25 @@
     <div style="margin:8px 5px;">
         <label style="font-size:13px;color:#555;">Banner ativo?</label>
         <select id="bannerAtivo">
-            <option value="true">Sim — mostrar no catálogo</option>
+            <option value="true">Sim — mostrar na loja virtual</option>
             <option value="false">Não — ocultar</option>
         </select>
     </div>
     <button onclick="salvarBanner()">Salvar Banner</button>
 </div>
+
+<section class="card" id="configPromocao">
+    <h3>Promoção automática da loja</h3>
+    <p>O banner é uma imagem: configure aqui a regra que será aplicada ao pagamento online.</p>
+    <label><input id="promocaoAtiva" type="checkbox"> Ativar promoção</label>
+    <label for="promocaoValor">Desconto por compra (R$)</label><input id="promocaoValor" type="number" min="0.01" step="0.01" value="10">
+    <label for="promocaoMinimo">Aplicar em compras acima de (R$)</label><input id="promocaoMinimo" type="number" min="0.01" step="0.01" value="50">
+    <label for="promocaoEscopo">Produtos participantes</label><select id="promocaoEscopo" onchange="renderProdutosPromocao()"><option value="todos">Todos os produtos</option><option value="selecionados">Somente produtos selecionados</option></select>
+    <div id="promocaoProdutos" hidden style="max-height:260px;overflow:auto"></div>
+    <p>O mínimo considera apenas os produtos participantes. O frete não recebe desconto. A promoção é aplicada uma vez por compra, somente acima do valor informado; R$ 50,00 exatos não recebem desconto quando o mínimo é R$ 50,00.</p>
+    <button type="button" id="salvarPromocao" onclick="salvarPromocao()">Salvar promoção</button>
+    <p id="promocaoStatus" role="status" aria-live="polite"></p>
+</section>
 
 <!-- CATEGORIAS -->
 <div class="card">
@@ -59,6 +77,19 @@
     <textarea id="descricao" placeholder="Descrição do produto..." 
     style="width:100%;max-width:500px;min-height:80px;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:14px;font-family:Arial,sans-serif;resize:vertical;margin:5px;"></textarea>
     <input id="preco" type="number" placeholder="Preço (R$)">
+    <fieldset style="margin:16px 5px;padding:12px;border:1px solid #ddd;border-radius:8px;">
+        <legend>Variações e personalização</legend>
+        <label for="variacoesProduto">Opções com acréscimo — uma por linha no formato Nome | Valor</label>
+        <textarea id="variacoesProduto" placeholder="Pequeno | 0&#10;Grande | 8,00&#10;Azul | 2,00" style="width:100%;max-width:500px;min-height:90px;"></textarea>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;">
+            <label><input id="personalizaCor" type="checkbox"> Solicitar cor</label>
+            <label><input id="personalizaTamanho" type="checkbox"> Solicitar tamanho</label>
+            <label><input id="personalizaNome" type="checkbox"> Solicitar nome</label>
+            <label><input id="personalizaTexto" type="checkbox"> Solicitar texto</label>
+            <label><input id="personalizaModelo" type="checkbox"> Solicitar modelo</label>
+            <label><input id="personalizaReferencia" type="checkbox"> Solicitar link de imagem/referência</label>
+        </div>
+    </fieldset>
 
     <div style="margin:8px 5px;">
         <label style="font-size:13px;color:#555;">Categoria</label><br>
@@ -81,6 +112,22 @@
     </div>
 
     <div style="margin:8px 5px;">
+        <label for="estoqueMinimo" style="font-size:13px;color:#555;">Avisar quando o estoque chegar a</label><br>
+        <input id="estoqueMinimo" type="number" min="0" value="2" style="width:100%;max-width:200px;">
+    </div>
+
+    <fieldset style="margin:16px 5px;padding:12px;border:1px solid #ddd;border-radius:8px;">
+        <legend>Embalagem para cálculo de frete</legend>
+        <p style="font-size:13px;color:#555;">Informe as medidas do produto já embalado. Para envios, preencha os quatro campos. Sem esses dados, não será possível cotar o frete desse produto.</p>
+        <div class="orcamento-grid">
+            <div><label for="pesoEnvioKg">Peso com embalagem (kg)</label><input id="pesoEnvioKg" type="number" min="0.001" max="1000" step="0.001" placeholder="Ex: 0.250"></div>
+            <div><label for="larguraEnvioCm">Largura (cm)</label><input id="larguraEnvioCm" type="number" min="0.1" max="1000" step="0.1"></div>
+            <div><label for="alturaEnvioCm">Altura (cm)</label><input id="alturaEnvioCm" type="number" min="0.1" max="1000" step="0.1"></div>
+            <div><label for="comprimentoEnvioCm">Comprimento (cm)</label><input id="comprimentoEnvioCm" type="number" min="0.1" max="1000" step="0.1"></div>
+        </div>
+    </fieldset>
+
+    <div style="margin:8px 5px;">
         <label style="font-size:13px;color:#555;">📷 Foto principal (Direct link ImgBB)</label><br>
         <input id="fotoURL" placeholder="https://i.ibb.co/..." style="width:100%;max-width:500px;" oninput="previewFoto('fotoURL','preview1')">
         <img id="preview1" src="" style="display:none;max-width:150px;margin-top:6px;border-radius:8px;">
@@ -90,6 +137,12 @@
         <label style="font-size:13px;color:#555;">📷 Foto extra 2 (opcional)</label><br>
         <input id="fotoURL2" placeholder="https://i.ibb.co/..." style="width:100%;max-width:500px;" oninput="previewFoto('fotoURL2','preview2')">
         <img id="preview2" src="" style="display:none;max-width:150px;margin-top:6px;border-radius:8px;">
+    </div>
+
+    <div style="margin:8px 5px;">
+        <label for="miniaturaURL" style="font-size:13px;color:#555;">Miniatura otimizada (opcional)</label><br>
+        <input id="miniaturaURL" type="url" placeholder="https://..." style="width:100%;max-width:500px;">
+        <p style="font-size:12px;color:#555;">Use uma imagem de cerca de 480 pixels de largura, em WebP ou JPEG comprimido. A foto original continua na galeria.</p>
     </div>
 
     <div style="margin:8px 5px;">
@@ -107,12 +160,31 @@
 
 <div class="card">
     <h3>🛍️ Produtos Cadastrados</h3>
+    <div class="dashboard" style="margin:12px 0;">
+        <div class="box"><strong>Produtos ativos</strong><p id="qtdProdutosAtivos">0</p></div>
+        <div class="box"><strong>Pronta entrega</strong><p id="qtdProntaEntrega">0</p></div>
+        <div class="box"><strong>Estoque baixo</strong><p id="qtdEstoqueBaixo">0</p></div>
+        <div class="box"><strong>Esgotados</strong><p id="qtdEsgotados">0</p></div>
+    </div>
+    <input id="buscaProduto" type="search" placeholder="Buscar produto" oninput="renderProdutos()">
+    <select id="filtroProdutos" onchange="renderProdutos()">
+        <option value="todos">Todos os produtos</option>
+        <option value="baixo">Estoque baixo</option>
+        <option value="esgotado">Esgotados</option>
+        <option value="pronta">Pronta entrega</option>
+        <option value="demanda">Sob demanda</option>
+        <option value="inativo">Inativos</option>
+    </select>
     <div id="alertaEstoque" style="margin:8px 0;"></div>
     <div id="listaProdutos" style="display:flex;flex-wrap:wrap;gap:15px;margin-top:10px;"></div>
 </div>
 
 </div>
 
+<script src="app.js?v=83"></script>
+<script src="promocao-admin.js?v=66"></script>
+<script src="estado-area.js?v=66"></script>
+<script src="catalogo-imagens.js?v=66"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -149,12 +221,17 @@ function escaparHTML(valor) {
         .replace(/'/g, "&#39;");
 }
 
+const protecaoArea = LVEstadoArea.proteger(document.getElementById('sistema'));
+
 auth.onAuthStateChanged(user => {
     if (user) {
         document.getElementById("sistema").style.display = "block";
-        carregarBanner();
-        carregarCategorias();
-        carregarProdutos();
+        protecaoArea.executar(async () => {
+            await carregarBanner();
+            await lerCategorias();
+            await lerProdutos();
+            await carregarPromocao();
+        });
     } else {
         window.location.href = "index.html";
     }
@@ -170,7 +247,7 @@ async function carregarBanner() {
             document.getElementById("bannerTexto").value = b.texto || "";
             document.getElementById("bannerAtivo").value = b.ativo ? "true" : "false";
         }
-    } catch(e) {}
+    } catch(e) { throw e; }
 }
 
 async function salvarBanner() {
@@ -182,9 +259,13 @@ async function salvarBanner() {
 }
 
 // ─── CATEGORIAS ─────────────────────────────────────
-async function carregarCategorias() {
-    categorias = [];
+function carregarCategorias() {
+    return protecaoArea.executar(lerCategorias);
+}
+
+async function lerCategorias() {
     const snapshot = await db.collection("categorias").orderBy("nome").get();
+    categorias = [];
     snapshot.forEach(doc => {
         categorias.push({ docId: doc.id, ...doc.data() });
     });
@@ -253,19 +334,46 @@ async function salvarProduto() {
     const fotoURL = document.getElementById("fotoURL").value.trim();
     const fotoURL2 = document.getElementById("fotoURL2").value.trim();
     const fotoURL3 = document.getElementById("fotoURL3").value.trim();
+    const miniaturaURL = document.getElementById("miniaturaURL").value.trim();
     const categoria = document.getElementById("categoriaProduto").value;
     const disponibilidade = document.getElementById("disponibilidade").value;
     const estoquePronto = Math.max(0, parseInt(document.getElementById("estoquePronto").value || "0", 10));
+    const estoqueMinimo = Math.max(0, parseInt(document.getElementById("estoqueMinimo").value || "0", 10));
+    const variacoes = document.getElementById("variacoesProduto").value.split(/\r?\n/).map((linha, indice) => {
+        const [nomeOpcao, valor = "0"] = linha.split("|");
+        const adicional = Number(String(valor).trim().replace(",", "."));
+        return { id: `opcao-${indice + 1}`, nome: String(nomeOpcao || "").trim().slice(0, 80), adicional };
+    }).filter(item => item.nome && Number.isFinite(item.adicional) && item.adicional >= 0 && item.adicional <= 100000);
+    const personalizacoes = { cor: document.getElementById("personalizaCor").checked, tamanho: document.getElementById("personalizaTamanho").checked,
+        nome: document.getElementById("personalizaNome").checked, texto: document.getElementById("personalizaTexto").checked,
+        modelo: document.getElementById("personalizaModelo").checked, referencia: document.getElementById("personalizaReferencia").checked };
+    let embalagem;
+    try {
+        embalagem = LV.embalagem({
+            pesoKg: document.getElementById('pesoEnvioKg').value,
+            larguraCm: document.getElementById('larguraEnvioCm').value,
+            alturaCm: document.getElementById('alturaEnvioCm').value,
+            comprimentoCm: document.getElementById('comprimentoEnvioCm').value
+        });
+    } catch (erro) { alert(erro.message); return; }
 
-    if (!nome || !preco) {
-        alert("Preencha pelo menos nome e preço.");
+    if (!nome || !Number.isFinite(preco) || preco <= 0 || !Number.isInteger(estoquePronto) || !Number.isInteger(estoqueMinimo)) {
+        alert("Informe nome, preço maior que zero e estoque válido.");
         return;
     }
 
     // Monta array de fotos ignorando vazias
     const fotos = [fotoURL, fotoURL2, fotoURL3].filter(f => f !== "");
+    if ([...fotos, miniaturaURL].filter(Boolean).some(url => {
+        try { const parsed = new URL(url); return parsed.protocol !== 'https:' || /\s/.test(url); }
+        catch (_) { return true; }
+    })) {
+        alert("Informe um único link HTTPS válido em cada campo de foto.");
+        return;
+    }
 
-    const dadosProduto = { nome, descricao, preco, fotoURL, fotos, categoria, disponibilidade, estoquePronto, ativo: true };
+    const dadosProduto = { nome, descricao, preco, fotoURL, fotos, miniaturaURL, categoria, disponibilidade, estoquePronto, estoqueMinimo, embalagem, variacoes, personalizacoes,
+        ativo: produtoEditando ? produtoEditando.ativo !== false : true };
 
     if (produtoEditando) {
         await db.collection("produtos").doc(produtoEditando.docId).update(dadosProduto);
@@ -279,29 +387,36 @@ async function salvarProduto() {
 }
 
 function limparFormProduto() {
-    ["nomeProduto","descricao","preco","fotoURL","fotoURL2","fotoURL3","estoquePronto"].forEach(id => {
+    ["nomeProduto","descricao","preco","fotoURL","fotoURL2","fotoURL3","miniaturaURL","estoquePronto","pesoEnvioKg","larguraEnvioCm","alturaEnvioCm","comprimentoEnvioCm","variacoesProduto"].forEach(id => {
         document.getElementById(id).value = "";
     });
+    document.getElementById("estoqueMinimo").value = "2";
     ["preview1","preview2","preview3"].forEach(id => {
         document.getElementById(id).style.display = "none";
     });
     document.getElementById("categoriaProduto").value = "";
     document.getElementById("disponibilidade").value = "sob_demanda";
+    ["personalizaCor","personalizaTamanho","personalizaNome","personalizaTexto","personalizaModelo","personalizaReferencia"].forEach(id => document.getElementById(id).checked = false);
     document.getElementById("btnCancelar").style.display = "none";
     produtoEditando = null;
 }
 
 function cancelarEdicao() { limparFormProduto(); }
 
-async function carregarProdutos() {
-    produtos = [];
+function carregarProdutos() {
+    return protecaoArea.executar(lerProdutos);
+}
+
+async function lerProdutos() {
     const snapshot = await db.collection("produtos").orderBy("criadoEm", "desc").get();
+    produtos = [];
     snapshot.forEach(doc => {
         const p = doc.data();
         p.docId = doc.id;
         produtos.push(p);
     });
     renderProdutos();
+    renderProdutosPromocao();
 }
 
 function renderProdutos() {
@@ -310,14 +425,17 @@ function renderProdutos() {
     lista.innerHTML = "";
     alertaEstoque.innerHTML = "";
 
+    document.getElementById("qtdProdutosAtivos").innerText = produtos.filter(p => p.ativo).length;
+    document.getElementById("qtdProntaEntrega").innerText = produtos.filter(p => p.ativo && p.disponibilidade === "pronta_entrega").length;
+    document.getElementById("qtdEstoqueBaixo").innerText = produtos.filter(produtoEstoqueBaixo).length;
+    document.getElementById("qtdEsgotados").innerText = produtos.filter(p => p.ativo && p.disponibilidade === "pronta_entrega" && Number(p.estoquePronto || 0) === 0).length;
+
     if (produtos.length === 0) {
         lista.innerHTML = "<p>Nenhum produto cadastrado ainda.</p>";
         return;
     }
 
-    const produtosBaixoEstoque = produtos.filter(p =>
-        p.disponibilidade === "pronta_entrega" && Number(p.estoquePronto || 0) <= 2
-    );
+    const produtosBaixoEstoque = produtos.filter(produtoEstoqueBaixo);
 
     if (produtosBaixoEstoque.length > 0) {
         alertaEstoque.innerHTML = `
@@ -331,7 +449,21 @@ function renderProdutos() {
         `;
     }
 
-    produtos.forEach(p => {
+    const termo = normalizarBuscaProduto(document.getElementById("buscaProduto").value);
+    const filtro = document.getElementById("filtroProdutos").value;
+    const produtosFiltrados = produtos.filter(p => {
+        const corresponde = !termo || normalizarBuscaProduto(`${p.nome || ""} ${p.categoria || ""}`).includes(termo);
+        if (!corresponde) return false;
+        if (filtro === "baixo") return produtoEstoqueBaixo(p);
+        if (filtro === "esgotado") return p.ativo && p.disponibilidade === "pronta_entrega" && Number(p.estoquePronto || 0) === 0;
+        if (filtro === "pronta") return p.disponibilidade === "pronta_entrega";
+        if (filtro === "demanda") return p.disponibilidade !== "pronta_entrega";
+        if (filtro === "inativo") return !p.ativo;
+        return true;
+    });
+    if (!produtosFiltrados.length) { lista.innerHTML = "<p>Nenhum produto encontrado neste filtro.</p>"; return; }
+
+    produtosFiltrados.forEach(p => {
         const fotos = p.fotos && p.fotos.length > 0 ? p.fotos : (p.fotoURL ? [p.fotoURL] : []);
         const disponibilidade = p.disponibilidade || "sob_demanda";
         const estoquePronto = Number(p.estoquePronto || 0);
@@ -345,13 +477,14 @@ function renderProdutos() {
         div.style.cssText = "background:#f4f6f9;border-radius:10px;padding:12px;width:200px;";
         div.innerHTML = `
             ${fotos.length > 0
-                ? `<img src="${escaparHTML(fotos[0])}" alt="${escaparHTML(p.nome)}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;margin-bottom:8px;">`
+                ? `<img src="${escaparHTML(p.miniaturaURL || IMAGENS_CATALOGO[fotos[0]] || fotos[0])}" alt="${escaparHTML(p.nome)}" loading="lazy" decoding="async" width="220" height="120" style="width:100%;height:120px;object-fit:cover;border-radius:8px;margin-bottom:8px;">`
                 : `<div style="width:100%;height:120px;background:#ddd;border-radius:8px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;color:#999;font-size:12px;">Sem foto</div>`}
             <strong>${escaparHTML(p.nome)}</strong><br>
             ${p.categoria ? `<span style="font-size:11px;background:#4fc3f7;color:white;border-radius:10px;padding:2px 8px;">${escaparHTML(p.categoria)}</span><br>` : ""}
             <small style="color:#555;">${escaparHTML((p.descricao || "").substring(0, 60))}${p.descricao && p.descricao.length > 60 ? "..." : ""}</small><br>
             <span style="color:#0f243e;font-weight:bold;">R$ ${Number(p.preco).toFixed(2)}</span><br>
             <small style="color:${corDisponibilidade};font-weight:bold;">${escaparHTML(textoDisponibilidade)}</small><br>
+            ${disponibilidade === "pronta_entrega" ? `<small>Estoque mínimo: ${Number.isInteger(Number(p.estoqueMinimo)) ? Number(p.estoqueMinimo) : 2}</small><div style="display:flex;gap:5px;margin-top:6px;"><button onclick="ajustarEstoque('${p.docId}', -1)" ${estoquePronto <= 0 ? "disabled" : ""} aria-label="Retirar uma unidade de ${escaparHTML(p.nome)}">−1</button><button onclick="ajustarEstoque('${p.docId}', 1)" aria-label="Adicionar uma unidade de ${escaparHTML(p.nome)}">+1</button></div>` : ""}
             <small style="color:#888;">${fotos.length} foto(s)</small><br>
             <span style="font-size:12px;color:${p.ativo ? 'green' : 'red'};">${p.ativo ? "● Ativo" : "● Inativo"}</span>
             <div style="margin-top:8px;display:flex;gap:5px;">
@@ -364,10 +497,42 @@ function renderProdutos() {
     });
 }
 
+function normalizarBuscaProduto(valor) {
+    return String(valor || "").trim().toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function produtoEstoqueBaixo(p) {
+    const minimo = Number.isInteger(Number(p.estoqueMinimo)) ? Number(p.estoqueMinimo) : 2;
+    return p.ativo && p.disponibilidade === "pronta_entrega" && Number(p.estoquePronto || 0) <= minimo;
+}
+
+async function ajustarEstoque(docId, diferenca) {
+    if (!Number.isInteger(diferenca) || ![-1, 1].includes(diferenca)) return;
+    const ref = db.collection("produtos").doc(docId);
+    try {
+        await db.runTransaction(async tx => {
+            const doc = await tx.get(ref);
+            if (!doc.exists) throw new Error("Produto não encontrado.");
+            const produto = doc.data();
+            if (produto.disponibilidade !== "pronta_entrega") throw new Error("Este produto não usa estoque de pronta entrega.");
+            const atual = Number(produto.estoquePronto || 0);
+            const novo = atual + diferenca;
+            if (!Number.isInteger(atual) || novo < 0) throw new Error("O estoque não pode ficar negativo.");
+            tx.update(ref, { estoquePronto: novo, estoqueAtualizadoEm: firebase.firestore.FieldValue.serverTimestamp() });
+        });
+        await carregarProdutos();
+    } catch (erro) { alert(erro.message || "Não foi possível ajustar o estoque."); }
+}
+
 function editarProduto(docId) {
     const p = produtos.find(x => x.docId === docId);
     if (!p) return;
     produtoEditando = p;
+    document.getElementById('pesoEnvioKg').value = p.embalagem?.pesoKg ?? '';
+    document.getElementById('larguraEnvioCm').value = p.embalagem?.larguraCm ?? '';
+    document.getElementById('alturaEnvioCm').value = p.embalagem?.alturaCm ?? '';
+    document.getElementById('comprimentoEnvioCm').value = p.embalagem?.comprimentoCm ?? '';
+    document.getElementById("miniaturaURL").value = p.miniaturaURL || "";
 
     document.getElementById("nomeProduto").value = p.nome || "";
     document.getElementById("descricao").value = p.descricao || "";
@@ -375,6 +540,15 @@ function editarProduto(docId) {
     document.getElementById("categoriaProduto").value = p.categoria || "";
     document.getElementById("disponibilidade").value = p.disponibilidade || "sob_demanda";
     document.getElementById("estoquePronto").value = p.estoquePronto || "";
+    document.getElementById("estoqueMinimo").value = Number.isInteger(Number(p.estoqueMinimo)) ? Number(p.estoqueMinimo) : 2;
+    document.getElementById("variacoesProduto").value = (p.variacoes || []).map(item => `${item.nome} | ${Number(item.adicional || 0).toFixed(2)}`).join("\n");
+    const pers = p.personalizacoes || {};
+    document.getElementById("personalizaCor").checked = pers.cor === true;
+    document.getElementById("personalizaTamanho").checked = pers.tamanho === true;
+    document.getElementById("personalizaNome").checked = pers.nome === true;
+    document.getElementById("personalizaTexto").checked = pers.texto === true;
+    document.getElementById("personalizaModelo").checked = pers.modelo === true;
+    document.getElementById("personalizaReferencia").checked = pers.referencia === true;
     document.getElementById("btnCancelar").style.display = "inline-block";
 
     const fotos = p.fotos && p.fotos.length > 0 ? p.fotos : (p.fotoURL ? [p.fotoURL] : []);

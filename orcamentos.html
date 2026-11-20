@@ -7,6 +7,9 @@
 <link rel="stylesheet" href="style.css">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f243e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script defer src="pwa.js?v=66"></script>
 <style>
 .orcamento-grid {
     display: grid;
@@ -101,6 +104,7 @@
     <a href="financeiro.html">📊 Financeiro</a>
     <a href="produtos.html">🛍️ Produtos</a>
     <a href="orcamentos.html" class="ativo">🧮 Orçamentos</a>
+    <a href="entregas.html">🚚 Entregas</a>
 </nav>
 
 <!-- CONFIGURAÇÕES -->
@@ -112,13 +116,19 @@
     <div class="secao-conteudo" id="configConteudo">
 
         <h4 style="margin-bottom:8px;">Parâmetros de custo</h4>
+        <p style="font-size:13px;color:#555;margin-top:0;">Valores iniciais ajustados para Guaramirim/SC. Use sua conta de luz e seus custos reais para refinar quando necessário.</p>
         <div class="config-grid">
-            <div><label>Energia (R$/kWh)</label><input id="cfgEnergia" type="number" step="0.01" placeholder="0.75"></div>
-            <div><label>Trabalho (R$/h)</label><input id="cfgTrabalho" type="number" step="0.01" placeholder="10"></div>
+            <div><label>Energia final (R$/kWh)</label><input id="cfgEnergia" type="number" min="0" step="0.01" placeholder="1.00"></div>
+            <div><label>Trabalho manual (R$/h)</label><input id="cfgTrabalho" type="number" min="0" step="0.01" placeholder="20"></div>
             <div><label>Taxa de falha (%)</label><input id="cfgFalha" type="number" step="0.1" placeholder="10"></div>
             <div><label>Taxa marketplace (%)</label><input id="cfgMarketplace" type="number" step="0.1" placeholder="20"></div>
-            <div><label>Imposto (%)</label><input id="cfgImposto" type="number" step="0.1" placeholder="5.5"></div>
-            <div><label>Taxa fixa (R$)</label><input id="cfgTaxaFixa" type="number" step="0.01" placeholder="4"></div>
+            <div><label>Imposto marketplace (%)</label><input id="cfgImposto" type="number" step="0.1" placeholder="5.5"></div>
+            <div><label>Taxa fixa marketplace (R$)</label><input id="cfgTaxaFixa" type="number" step="0.01" placeholder="4"></div>
+            <div><label>Taxas da venda direta (%)</label><input id="cfgVendaDireta" type="number" min="0" step="0.1" placeholder="0"></div>
+            <div><label>Margem de segurança (%)</label><input id="cfgMargemSeguranca" type="number" min="0" step="0.1" placeholder="12"></div>
+            <div><label>Arredondar para múltiplos de (R$)</label><input id="cfgArredondamento" type="number" min="0" step="0.01" placeholder="5"></div>
+            <div><label>Lucro mínimo por unidade (R$)</label><input id="cfgLucroMinimo" type="number" min="0" step="0.01" placeholder="5"></div>
+            <div><label>Custo fixo de preparação por pedido (R$)</label><input id="cfgPreparacao" type="number" min="0" step="0.01" placeholder="5"></div>
         </div>
         <button onclick="salvarParametros()">Salvar Parâmetros</button>
 
@@ -130,6 +140,7 @@
             <div><label style="font-size:12px;color:#555;">Preço por kg (R$)</label><input id="precoFilamento" type="number" step="0.01" placeholder="89" style="width:120px;"></div>
             <div><label style="font-size:12px;color:#555;">Estoque inicial (kg)</label><input id="estoqueFilamento" type="number" min="0" step="0.001" value="0" style="width:115px;"></div>
             <div><label style="font-size:12px;color:#555;">Avisar abaixo de (kg)</label><input id="estoqueMinimoFilamento" type="number" min="0" step="0.001" value="0" style="width:125px;"></div>
+            <div><label style="font-size:12px;color:#555;">Fornecedor</label><input id="fornecedorFilamento" placeholder="Fornecedor" style="width:140px;"></div>
             <button onclick="adicionarFilamento()">Adicionar</button>
         </div>
         <div class="lista-itens" id="listaFilamentos"></div>
@@ -141,7 +152,8 @@
             <div><label style="font-size:12px;color:#555;">Nome</label><input id="nomeImpressora" placeholder="Ex: Bambu A1" style="width:140px;"></div>
             <div><label style="font-size:12px;color:#555;">Consumo (kWh/h)</label><input id="consumoImpressora" type="number" step="0.001" placeholder="0.015" style="width:130px;"></div>
             <div><label style="font-size:12px;color:#555;">Depreciação (R$/h)</label><input id="depreciacaoImpressora" type="number" step="0.01" placeholder="0.66" style="width:140px;"></div>
-            <button onclick="adicionarImpressora()">Adicionar</button>
+            <button id="btnSalvarImpressora" onclick="adicionarImpressora()">Adicionar</button>
+            <button id="btnCancelarImpressora" onclick="cancelarEdicaoImpressora()" style="display:none;background:#888;">Cancelar</button>
         </div>
         <div class="lista-itens" id="listaImpressoras"></div>
 
@@ -156,10 +168,12 @@
             <div><label style="font-size:12px;color:#555;">Custo por unidade (R$)</label><input id="custoInsumo" type="number" min="0.01" step="0.01" placeholder="3.50" style="width:135px;"></div>
             <div><label style="font-size:12px;color:#555;">Estoque inicial</label><input id="estoqueInsumo" type="number" min="0" step="0.001" value="0" style="width:105px;"></div>
             <div><label style="font-size:12px;color:#555;">Avisar abaixo de</label><input id="estoqueMinimoInsumo" type="number" min="0" step="0.001" value="0" style="width:105px;"></div>
+            <div><label style="font-size:12px;color:#555;">Fornecedor</label><input id="fornecedorInsumo" placeholder="Fornecedor" style="width:140px;"></div>
             <button onclick="adicionarInsumoCatalogo()">Adicionar insumo</button>
         </div>
         <div class="lista-itens" id="listaInsumosCadastrados"></div>
         <div id="alertasEstoque" style="margin-top:10px;"></div>
+        <details style="margin-top:10px;"><summary><strong>Histórico de entradas do estoque</strong></summary><div id="historicoEstoque" style="margin-top:8px;"></div></details>
 
         <div style="margin-top:14px;padding:12px;background:#f4f6f9;border-radius:8px;">
             <strong style="font-size:14px;">Registrar compra e repor estoque</strong>
@@ -168,6 +182,7 @@
                 <div><label style="font-size:12px;color:#555;">Quantidade comprada</label><input id="quantidadeCompraInsumo" type="number" min="0.001" step="0.001" placeholder="10" style="width:125px;"></div>
                 <div><label style="font-size:12px;color:#555;">Valor total pago (R$)</label><input id="valorCompraInsumo" type="number" min="0.01" step="0.01" placeholder="35.00" style="width:125px;"></div>
                 <div><label style="font-size:12px;color:#555;">Data</label><input id="dataCompraInsumo" type="date"></div>
+                <div><label style="font-size:12px;color:#555;">Fornecedor</label><input id="fornecedorCompraInsumo" placeholder="Fornecedor" style="width:140px;"></div>
                 <button onclick="registrarCompraInsumo()">Registrar compra</button>
             </div>
             <small style="color:#555;display:block;margin-top:6px;">A compra atualiza o estoque e cria uma despesa automaticamente no Financeiro.</small>
@@ -212,12 +227,10 @@
             <label>Embalagem</label>
             <select id="embalagemTipo" onchange="aplicarEmbalagem(); calcular();">
                 <option value="0">Sem embalagem</option>
-                <option value="5.98">Pequena - R$ 5,98</option>
-                <option value="8.60">Grande - R$ 8,60</option>
                 <option value="custom">Personalizada</option>
             </select>
         </div>
-        <div><label>Valor embalagem (R$)</label><input id="embalagem" type="number" step="0.01" value="0" oninput="calcular()"></div>
+        <div><label>Valor da embalagem por unidade (R$)</label><input id="embalagem" type="number" min="0" step="0.01" value="0" oninput="calcular()"></div>
         <div><label>Markup</label><input id="markup" type="number" step="0.1" value="2" oninput="calcular()"></div>
         <div>
             <label>Status</label>
@@ -248,9 +261,11 @@
 
     <div class="orcamento-resumo dashboard">
         <div class="box"><strong>Custo unitário</strong><p>R$ <span id="custoUnitario">0.00</span></p></div>
-        <div class="box"><strong>Preço sugerido</strong><p>R$ <span id="precoSugerido">0.00</span></p></div>
+        <div class="box"><strong>Preço mínimo</strong><p>R$ <span id="precoMinimo">0.00</span></p></div>
+        <div class="box" style="border-left:4px solid #218c4d;"><strong>Preço recomendado</strong><p>R$ <span id="precoSugerido">0.00</span></p></div>
         <div class="box"><strong>Marketplace</strong><p>R$ <span id="precoMarketplace">0.00</span></p></div>
-        <div class="box"><strong>Total</strong><p>R$ <span id="precoTotal">0.00</span></p></div>
+        <div class="box"><strong>Lucro estimado/un.</strong><p>R$ <span id="lucroEstimado">0.00</span></p><small><span id="margemEstimada">0.0</span>% do preço</small></div>
+        <div class="box"><strong>Total recomendado</strong><p>R$ <span id="precoTotal">0.00</span></p></div>
     </div>
 
     <div class="detalhe-custos">
@@ -258,11 +273,13 @@
         <span>Energia: R$ <strong id="dEnergia">0.00</strong></span>
         <span>Impressora: R$ <strong id="dImpressora">0.00</strong></span>
         <span>Trabalho: R$ <strong id="dTrabalho">0.00</strong></span>
+        <span>Preparação rateada: R$ <strong id="dPreparacao">0.00</strong></span>
         <span>Insumos cadastrados: R$ <strong id="dInsumosCadastrados">0.00</strong></span>
         <span>Extras: R$ <strong id="dExtras">0.00</strong></span>
     </div>
 
     <button onclick="salvarOrcamento()" id="btnSalvarOrcamento">Salvar Orçamento</button>
+    <label style="display:inline-flex;align-items:center;gap:6px;"><input id="salvarComoModelo" type="checkbox" style="width:auto;"> Salvar também como modelo reutilizável</label>
     <button onclick="limparCampos()" id="btnCancelar" style="display:none;background:#888;">Cancelar Edição</button>
     <p id="statusOrcamento" style="color:#555;margin:8px 5px;"></p>
 </div>
@@ -278,7 +295,9 @@
         <option>Aprovado</option>
         <option>Recusado</option>
     </select>
+    <select id="filtroModelos" onchange="renderOrcamentos()"><option value="todos">Orçamentos e modelos</option><option value="modelos">Somente modelos</option></select>
     <button onclick="exportarCSV()">Exportar CSV</button>
+    <p id="comparacaoCustoModelo" style="color:#526176;"></p>
 
     <table>
         <thead>
@@ -305,6 +324,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
 
+<script src="app.js?v=83"></script>
+<script src="estado-area.js?v=66"></script>
 <script>
 const firebaseConfig = {
     apiKey: "AIzaSyASqz8XoAhyD6w-klOr4HXlj_4URkQlBU8",
@@ -328,14 +349,20 @@ let orcamentoEditando = null;
 let calculoAtual = {};
 let INSUMOS_CADASTRADOS = [];
 let itensInsumosOrcamento = [];
+let impressoraEditandoId = "";
 
 let PARAMS = {
-    energia: 0.75,
-    trabalho: 10,
+    energia: 1.00,
+    trabalho: 20,
     falha: 10,
     marketplace: 0.20,
     imposto: 0.055,
-    taxaFixa: 4
+    taxaFixa: 4,
+    vendaDireta: 0,
+    margemSeguranca: 12,
+    arredondamento: 5,
+    lucroMinimo: 5,
+    preparacao: 5
 };
 
 let FILAMENTOS = [
@@ -352,8 +379,8 @@ let FILAMENTOS = [
 ];
 
 let IMPRESSORAS = [
-    { id: "i1", nome: "BambuLab A1 mini", consumo: 0.015, depreciacao: 0.66 },
-    { id: "i2", nome: "Bambulab A1", consumo: 0.15, depreciacao: 0.58 },
+    { id: "i1", nome: "BambuLab A1 mini", consumo: 0.085, depreciacao: 0.66 },
+    { id: "i2", nome: "BambuLab A1 + AMS Lite", consumo: 0.16, depreciacao: 0.65 },
     { id: "i3", nome: "H2D", consumo: 0.30, depreciacao: 1.00 }
 ];
 
@@ -376,63 +403,60 @@ function normalizarTexto(valor) {
         .replace(/^-+|-+$/g, "");
 }
 
-function gerarClienteId(userId, nome) {
-    const slug = normalizarTexto(nome) || "cliente";
-    return `${userId}_${slug}`.slice(0, 120);
+async function salvarCadastroCliente(user, nome, telefone, clienteId = "") {
+    return LV.salvarCliente(db, user, nome, telefone, clienteId);
 }
 
-async function salvarCadastroCliente(user, nome, telefone) {
-    const clienteId = gerarClienteId(user.uid, nome);
-    const ref = db.collection("clientes").doc(clienteId);
-    const agora = new Date();
-    const atual = await ref.get();
-    const dados = {
-        usuario: user.uid,
-        nome,
-        nomeBusca: normalizarTexto(nome),
-        telefone: telefone || "",
-        atualizadoEm: agora
-    };
-
-    if (atual.exists) {
-        await ref.update(dados);
-    } else {
-        await ref.set({
-            ...dados,
-            observacoes: "",
-            criadoEm: agora
-        });
-    }
-
-    return clienteId;
-}
+const protecaoArea = LVEstadoArea.proteger(document.getElementById('sistema'));
 
 auth.onAuthStateChanged(user => {
     if (user) {
         document.getElementById("sistema").style.display = "block";
-        carregarConfiguracoes().then(() => {
+        protecaoArea.executar(async () => {
+            await carregarConfiguracoes();
             preencherSelects();
             renderItensInsumosOrcamento();
             document.getElementById("dataCompraInsumo").value = new Date().toISOString().slice(0, 10);
             calcular();
-            carregarOrcamentos();
+            await lerOrcamentos();
         });
     } else {
         window.location.href = "index.html";
     }
 });
 
+let configuracaoBase = null;
+
 async function carregarConfiguracoes() {
+    let precisaMigrar = false;
+    const ref = db.collection("configuracoes").doc("orcamento");
     try {
-        const doc = await db.collection("configuracoes").doc("orcamento").get();
+        const doc = await ref.get();
         if (doc.exists) {
             const d = doc.data();
             if (d.params) PARAMS = { ...PARAMS, ...d.params };
-            if (d.filamentos && d.filamentos.length > 0) FILAMENTOS = d.filamentos;
-            if (d.impressoras && d.impressoras.length > 0) IMPRESSORAS = d.impressoras;
+            if (Array.isArray(d.filamentos)) FILAMENTOS = d.filamentos;
+            if (Array.isArray(d.impressoras)) IMPRESSORAS = d.impressoras;
             if (Array.isArray(d.insumosCadastrados)) INSUMOS_CADASTRADOS = d.insumosCadastrados;
         }
-    } catch(e) {}
+        if (Number(PARAMS.energia) === 0.75) { PARAMS.energia = 1.00; precisaMigrar = true; }
+        if (Number(PARAMS.trabalho) === 10) { PARAMS.trabalho = 20; precisaMigrar = true; }
+        IMPRESSORAS = IMPRESSORAS.map(impressora => {
+            const nome = normalizarTexto(impressora.nome);
+            if (nome.includes("a1-mini") && Number(impressora.consumo) === 0.015) {
+                precisaMigrar = true;
+                return { ...impressora, consumo: 0.085 };
+            }
+            if ((nome === "bambulab-a1" || nome === "bambu-a1") && Number(impressora.consumo) === 0.15) {
+                precisaMigrar = true;
+                return { ...impressora, nome: "BambuLab A1 + AMS Lite", consumo: 0.16,
+                    depreciacao: Number(impressora.depreciacao) === 0.58 ? 0.65 : impressora.depreciacao };
+            }
+            return impressora;
+        });
+        if (precisaMigrar) await ref.set({ params: PARAMS, impressoras: IMPRESSORAS }, { merge: true });
+    } catch(e) { alert("Não foi possível carregar as configurações. Recarregue a tela antes de salvar."); throw e; }
+    configuracaoBase = LV.copiar(dadosConfiguracaoFirebase());
 
     document.getElementById("cfgEnergia").value = PARAMS.energia;
     document.getElementById("cfgTrabalho").value = PARAMS.trabalho;
@@ -440,6 +464,11 @@ async function carregarConfiguracoes() {
     document.getElementById("cfgMarketplace").value = PARAMS.marketplace * 100;
     document.getElementById("cfgImposto").value = PARAMS.imposto * 100;
     document.getElementById("cfgTaxaFixa").value = PARAMS.taxaFixa;
+    document.getElementById("cfgVendaDireta").value = PARAMS.vendaDireta * 100;
+    document.getElementById("cfgMargemSeguranca").value = PARAMS.margemSeguranca;
+    document.getElementById("cfgArredondamento").value = PARAMS.arredondamento;
+    document.getElementById("cfgLucroMinimo").value = PARAMS.lucroMinimo;
+    document.getElementById("cfgPreparacao").value = PARAMS.preparacao;
 
     renderFilamentos();
     renderImpressoras();
@@ -447,20 +476,56 @@ async function carregarConfiguracoes() {
 }
 
 async function salvarParametros() {
-    PARAMS.energia = parseFloat(document.getElementById("cfgEnergia").value) || 0.75;
-    PARAMS.trabalho = parseFloat(document.getElementById("cfgTrabalho").value) || 10;
-    PARAMS.falha = parseFloat(document.getElementById("cfgFalha").value) || 10;
-    PARAMS.marketplace = (parseFloat(document.getElementById("cfgMarketplace").value) || 20) / 100;
-    PARAMS.imposto = (parseFloat(document.getElementById("cfgImposto").value) || 5.5) / 100;
-    PARAMS.taxaFixa = parseFloat(document.getElementById("cfgTaxaFixa").value) || 4;
-
-    await salvarConfigFirebase();
-    alert("Parâmetros salvos!");
-    calcular();
+    const ler = (id, padrao) => {
+        const texto = document.getElementById(id).value.trim();
+        const valor = texto === "" ? padrao : Number(texto);
+        if (!Number.isFinite(valor) || valor < 0) throw new Error("Confira os parâmetros: use somente valores iguais ou maiores que zero.");
+        return valor;
+    };
+    try {
+        PARAMS.energia = ler("cfgEnergia", 1.00);
+        PARAMS.trabalho = ler("cfgTrabalho", 20);
+        PARAMS.falha = ler("cfgFalha", 10);
+        PARAMS.marketplace = ler("cfgMarketplace", 20) / 100;
+        PARAMS.imposto = ler("cfgImposto", 5.5) / 100;
+        PARAMS.taxaFixa = ler("cfgTaxaFixa", 4);
+        PARAMS.vendaDireta = ler("cfgVendaDireta", 0) / 100;
+        PARAMS.margemSeguranca = ler("cfgMargemSeguranca", 12);
+        PARAMS.arredondamento = ler("cfgArredondamento", 5);
+        PARAMS.lucroMinimo = ler("cfgLucroMinimo", 5);
+        PARAMS.preparacao = ler("cfgPreparacao", 5);
+        if (PARAMS.falha >= 100 || PARAMS.marketplace + PARAMS.imposto >= 1 || PARAMS.vendaDireta >= 1) {
+            throw new Error("As taxas percentuais precisam ser menores que 100%.");
+        }
+        await salvarConfigFirebase();
+        alert("Parâmetros salvos!");
+        calcular();
+    } catch (erro) { alert(erro.message || "Não foi possível salvar os parâmetros."); }
 }
 
 async function salvarConfigFirebase() {
-    await db.collection("configuracoes").doc("orcamento").set(dadosConfiguracaoFirebase());
+    if (!configuracaoBase) throw new Error("Recarregue as configurações antes de salvar.");
+    const ref = db.collection("configuracoes").doc("orcamento");
+    const base = LV.copiar(configuracaoBase);
+    const editada = LV.copiar(dadosConfiguracaoFirebase());
+    try {
+        const resultado = await db.runTransaction(async tx => {
+            const doc = await tx.get(ref);
+            const atual = doc.exists ? { ...base, ...doc.data(), params: { ...base.params, ...doc.data().params } } : base;
+            const nova = LV.mesclarConfiguracao(base, editada, atual);
+            tx.set(ref, nova, { merge: true });
+            return nova;
+        });
+        aplicarConfiguracao(resultado);
+    } catch (erro) { alert(erro.message); await carregarConfiguracoes(); throw erro; }
+}
+
+function aplicarConfiguracao(dados) {
+    PARAMS = dados.params;
+    FILAMENTOS = dados.filamentos;
+    IMPRESSORAS = dados.impressoras;
+    INSUMOS_CADASTRADOS = dados.insumosCadastrados;
+    configuracaoBase = LV.copiar(dadosConfiguracaoFirebase());
 }
 
 function dadosConfiguracaoFirebase() {
@@ -479,7 +544,7 @@ function renderFilamentos() {
         const span = document.createElement("span");
         span.className = "item-tag";
         const estoque = f.controlarEstoque ? ` · Est.: ${formatarQuantidade(f.estoqueAtual)} kg` : "";
-        span.innerHTML = `${escaparHTML(f.nome)} - R$${Number(f.preco).toFixed(2)}/kg${estoque} <button onclick="excluirFilamento('${f.id}')">✕</button>`;
+        span.innerHTML = `${escaparHTML(f.nome)} - R$${Number(f.preco).toFixed(2)}/kg${estoque}${f.fornecedor ? ` · ${escaparHTML(f.fornecedor)}` : ""}${f.ultimaCompraData ? ` · Última compra: ${escaparHTML(f.ultimaCompraData)} por R$${Number(f.ultimoPrecoCompra || 0).toFixed(2)}` : ""} <button onclick="excluirFilamento('${f.id}')">✕</button>`;
         lista.appendChild(span);
     });
     preencherSelects();
@@ -491,16 +556,18 @@ async function adicionarFilamento() {
     const preco = parseFloat(document.getElementById("precoFilamento").value);
     const estoqueAtual = Number(document.getElementById("estoqueFilamento").value);
     const estoqueMinimo = Number(document.getElementById("estoqueMinimoFilamento").value);
+    const fornecedor = document.getElementById("fornecedorFilamento").value.trim();
     if (!nome || !preco) { alert("Preencha nome e preço."); return; }
     if (!Number.isFinite(estoqueAtual) || estoqueAtual < 0 || !Number.isFinite(estoqueMinimo) || estoqueMinimo < 0) {
         alert("Informe valores de estoque válidos.");
         return;
     }
-    FILAMENTOS.push({ id: "f" + Date.now(), nome, preco, estoqueAtual, estoqueMinimo, controlarEstoque: true });
+    FILAMENTOS.push({ id: "f" + Date.now(), nome, preco, estoqueAtual, estoqueMinimo, fornecedor, historicoEstoque: [], controlarEstoque: true });
     document.getElementById("nomeFilamento").value = "";
     document.getElementById("precoFilamento").value = "";
     document.getElementById("estoqueFilamento").value = "0";
     document.getElementById("estoqueMinimoFilamento").value = "0";
+    document.getElementById("fornecedorFilamento").value = "";
     await salvarConfigFirebase();
     renderFilamentos();
 }
@@ -517,7 +584,7 @@ function renderImpressoras() {
     IMPRESSORAS.forEach(i => {
         const span = document.createElement("span");
         span.className = "item-tag";
-        span.innerHTML = `${escaparHTML(i.nome)} (${i.consumo}kWh/h, R$${i.depreciacao}/h) <button onclick="excluirImpressora('${i.id}')">✕</button>`;
+        span.innerHTML = `${escaparHTML(i.nome)} (${i.consumo}kWh/h, R$${i.depreciacao}/h) <button onclick="editarImpressora('${i.id}')">Editar</button> <button onclick="excluirImpressora('${i.id}')">✕</button>`;
         lista.appendChild(span);
     });
     preencherSelects();
@@ -527,13 +594,37 @@ async function adicionarImpressora() {
     const nome = document.getElementById("nomeImpressora").value.trim();
     const consumo = parseFloat(document.getElementById("consumoImpressora").value);
     const depreciacao = parseFloat(document.getElementById("depreciacaoImpressora").value);
-    if (!nome || !consumo || !depreciacao) { alert("Preencha todos os campos da impressora."); return; }
-    IMPRESSORAS.push({ id: "i" + Date.now(), nome, consumo, depreciacao });
+    if (!nome || !Number.isFinite(consumo) || consumo <= 0 || !Number.isFinite(depreciacao) || depreciacao <= 0) { alert("Preencha todos os campos da impressora com valores maiores que zero."); return; }
+    if (impressoraEditandoId) {
+        const indice = IMPRESSORAS.findIndex(item => item.id === impressoraEditandoId);
+        if (indice >= 0) IMPRESSORAS[indice] = { ...IMPRESSORAS[indice], nome, consumo, depreciacao };
+    } else {
+        IMPRESSORAS.push({ id: "i" + Date.now(), nome, consumo, depreciacao });
+    }
+    cancelarEdicaoImpressora();
+    await salvarConfigFirebase();
+    renderImpressoras();
+    calcular();
+}
+
+function editarImpressora(id) {
+    const impressora = IMPRESSORAS.find(item => item.id === id);
+    if (!impressora) return;
+    impressoraEditandoId = id;
+    document.getElementById("nomeImpressora").value = impressora.nome;
+    document.getElementById("consumoImpressora").value = impressora.consumo;
+    document.getElementById("depreciacaoImpressora").value = impressora.depreciacao;
+    document.getElementById("btnSalvarImpressora").innerText = "Salvar alterações";
+    document.getElementById("btnCancelarImpressora").style.display = "inline-block";
+}
+
+function cancelarEdicaoImpressora() {
+    impressoraEditandoId = "";
     document.getElementById("nomeImpressora").value = "";
     document.getElementById("consumoImpressora").value = "";
     document.getElementById("depreciacaoImpressora").value = "";
-    await salvarConfigFirebase();
-    renderImpressoras();
+    document.getElementById("btnSalvarImpressora").innerText = "Adicionar";
+    document.getElementById("btnCancelarImpressora").style.display = "none";
 }
 
 async function excluirImpressora(id) {
@@ -545,10 +636,21 @@ async function excluirImpressora(id) {
 function renderInsumosCadastrados() {
     const lista = document.getElementById("listaInsumosCadastrados");
     lista.innerHTML = INSUMOS_CADASTRADOS.length
-        ? INSUMOS_CADASTRADOS.map(item => `<span class="item-tag">${escaparHTML(item.nome)} · R$${Number(item.custoUnitario || 0).toFixed(2)}/${escaparHTML(item.unidade || "un")}${item.controlarEstoque ? ` · Est.: ${formatarQuantidade(item.estoqueAtual)}` : ""} <button onclick="excluirInsumoCatalogo('${item.id}')" title="Excluir insumo">✕</button></span>`).join("")
+        ? INSUMOS_CADASTRADOS.map(item => `<span class="item-tag">${escaparHTML(item.nome)} · R$${Number(item.custoUnitario || 0).toFixed(2)}/${escaparHTML(item.unidade || "un")}${item.controlarEstoque ? ` · Est.: ${formatarQuantidade(item.estoqueAtual)}` : ""}${item.fornecedor ? ` · ${escaparHTML(item.fornecedor)}` : ""}${item.ultimaCompraData ? ` · Última compra: ${escaparHTML(item.ultimaCompraData)} por R$${Number(item.ultimoPrecoCompra || 0).toFixed(2)}` : ""} <button onclick="excluirInsumoCatalogo('${item.id}')" title="Excluir insumo">✕</button></span>`).join("")
         : "<small style='color:#777;'>Nenhum insumo cadastrado ainda.</small>";
     preencherSelectInsumos();
+    preencherSelectEmbalagens();
     renderAlertasEstoque();
+}
+
+function preencherSelectEmbalagens() {
+    const select = document.getElementById("embalagemTipo");
+    const valorAtual = select.value;
+    const embalagens = INSUMOS_CADASTRADOS.filter(item => LV.nome(item.categoria) === "embalagem");
+    select.innerHTML = '<option value="0">Sem embalagem</option>'
+        + embalagens.map(item => `<option value="insumo:${escaparHTML(item.id)}">${escaparHTML(item.nome)} - R$ ${Number(item.custoUnitario || 0).toFixed(2)}</option>`).join("")
+        + '<option value="custom">Personalizada</option>';
+    select.value = [...select.options].some(option => option.value === valorAtual) ? valorAtual : "0";
 }
 
 function formatarQuantidade(valor) {
@@ -566,9 +668,34 @@ function renderAlertasEstoque() {
         return item.controlarEstoque === true && minimo > 0 && Number(item.estoqueAtual || 0) <= minimo;
     }).map(item => `${escaparHTML(item.nome)} (${formatarQuantidade(item.estoqueAtual)} kg/${formatarQuantidade(item.estoqueMinimo)} kg)`);
     const nomesBaixos = [...baixos.map(item => `${escaparHTML(item.nome)} (${formatarQuantidade(item.estoqueAtual)}/${formatarQuantidade(item.estoqueMinimo)})`), ...filamentosBaixos];
-    area.innerHTML = baixos.length
-        || filamentosBaixos.length ? `<div style="padding:8px 10px;background:#fff3cd;color:#856404;border-radius:6px;font-size:13px;">⚠️ Estoque baixo: ${nomesBaixos.join(", ")}</div>`
-        : "";
+    const limiteParado = new Date(); limiteParado.setDate(limiteParado.getDate() - 90);
+    const parados = [...FILAMENTOS, ...INSUMOS_CADASTRADOS].filter(item => item.ultimaCompraData
+        && new Date(item.ultimaCompraData + "T12:00:00") < limiteParado && Number(item.estoqueAtual || 0) > 0);
+    const previsoes = [];
+    FILAMENTOS.forEach(item => {
+        const usos = orcamentos.filter(o => o.filamentoId === item.id && Number(o.gramatura) > 0)
+            .map(o => Number(o.gramatura) * Number(o.quantidade || 1) / 1000);
+        if (usos.length) previsoes.push(`${escaparHTML(item.nome)}: cerca de ${Math.floor(Number(item.estoqueAtual || 0) / (usos.reduce((a,b)=>a+b,0)/usos.length))} pedido(s)`);
+    });
+    INSUMOS_CADASTRADOS.forEach(item => {
+        const usos = orcamentos.flatMap(o => (o.itensInsumos || []).filter(i => i.id === item.id)
+            .map(i => Number(i.quantidade || 0) * Number(o.quantidade || 1))).filter(v => v > 0);
+        if (usos.length) previsoes.push(`${escaparHTML(item.nome)}: cerca de ${Math.floor(Number(item.estoqueAtual || 0) / (usos.reduce((a,b)=>a+b,0)/usos.length))} pedido(s)`);
+    });
+    area.innerHTML = [
+        nomesBaixos.length ? `<div class="alerta-estoque alerta-comprar"><strong>Lista de compra:</strong> ${nomesBaixos.join(", ")}</div>` : "",
+        previsoes.length ? `<div class="alerta-estoque"><strong>Previsão pelo consumo dos orçamentos:</strong> ${previsoes.join(" · ")}</div>` : "",
+        parados.length ? `<div class="alerta-estoque alerta-parado"><strong>Material sem nova compra há mais de 90 dias:</strong> ${parados.map(i => escaparHTML(i.nome)).join(", ")}</div>` : ""
+    ].filter(Boolean).join("");
+    renderHistoricoEstoque();
+}
+
+function renderHistoricoEstoque() {
+    const area = document.getElementById("historicoEstoque");
+    if (!area) return;
+    const linhas = [...FILAMENTOS, ...INSUMOS_CADASTRADOS].flatMap(item => (item.historicoEstoque || []).map(mov => ({ ...mov, nome: item.nome })));
+    linhas.sort((a,b) => String(b.data || "").localeCompare(String(a.data || "")));
+    area.innerHTML = linhas.length ? `<table><thead><tr><th>Data</th><th>Item</th><th>Movimento</th><th>Quantidade</th><th>Valor/Origem</th><th>Fornecedor/Cliente</th></tr></thead><tbody>${linhas.map(mov => `<tr><td>${escaparHTML(mov.data || "-")}</td><td>${escaparHTML(mov.nome)}</td><td>${mov.tipo === "saida" ? "Saída" : "Entrada"}</td><td>${formatarQuantidade(mov.quantidade)}</td><td>${mov.tipo === "saida" ? `Pedido ${escaparHTML(mov.pedidoId || "-")}` : `R$ ${Number(mov.valorTotal || 0).toFixed(2)}`}</td><td>${escaparHTML(mov.fornecedor || mov.cliente || "-")}</td></tr>`).join("")}</tbody></table>` : "<p>Nenhuma movimentação registrada no histórico.</p>";
 }
 
 async function adicionarInsumoCatalogo() {
@@ -578,6 +705,7 @@ async function adicionarInsumoCatalogo() {
     const custoUnitario = Number(document.getElementById("custoInsumo").value);
     const estoqueAtual = Number(document.getElementById("estoqueInsumo").value);
     const estoqueMinimo = Number(document.getElementById("estoqueMinimoInsumo").value);
+    const fornecedor = document.getElementById("fornecedorInsumo").value.trim();
     if (!nome || !Number.isFinite(custoUnitario) || custoUnitario <= 0) {
         alert("Informe o nome e um custo unitário maior que zero.");
         return;
@@ -586,11 +714,12 @@ async function adicionarInsumoCatalogo() {
         alert("Informe valores de estoque válidos.");
         return;
     }
-    INSUMOS_CADASTRADOS.push({ id: `ins_${Date.now()}`, nome, categoria, unidade, custoUnitario, estoqueAtual, estoqueMinimo, controlarEstoque: true });
+    INSUMOS_CADASTRADOS.push({ id: `ins_${Date.now()}`, nome, categoria, unidade, custoUnitario, estoqueAtual, estoqueMinimo, fornecedor, historicoEstoque: [], controlarEstoque: true });
     document.getElementById("nomeInsumo").value = "";
     document.getElementById("custoInsumo").value = "";
     document.getElementById("estoqueInsumo").value = "0";
     document.getElementById("estoqueMinimoInsumo").value = "0";
+    document.getElementById("fornecedorInsumo").value = "";
     await salvarConfigFirebase();
     renderInsumosCadastrados();
 }
@@ -635,6 +764,7 @@ async function registrarCompraInsumo() {
     const quantidade = Number(document.getElementById("quantidadeCompraInsumo").value);
     const valorTotal = Number(document.getElementById("valorCompraInsumo").value);
     const data = document.getElementById("dataCompraInsumo").value || new Date().toISOString().slice(0, 10);
+    const fornecedor = document.getElementById("fornecedorCompraInsumo").value.trim();
     const [tipo, id] = selecionado.split(":");
     const item = tipo === "filamento"
         ? FILAMENTOS.find(filamento => filamento.id === id)
@@ -644,41 +774,46 @@ async function registrarCompraInsumo() {
         return;
     }
 
-    const estoqueAnterior = Math.max(0, Number(item.estoqueAtual || 0));
-    const campoCusto = tipo === "filamento" ? "preco" : "custoUnitario";
-    const custoAnterior = Math.max(0, Number(item[campoCusto] || 0));
-    const controleAnterior = item.controlarEstoque;
-    item.estoqueAtual = estoqueAnterior + quantidade;
-    item[campoCusto] = ((estoqueAnterior * custoAnterior) + valorTotal) / item.estoqueAtual;
-    item.controlarEstoque = true;
-
+    if (registrarCompraInsumo.emAndamento) return;
+    registrarCompraInsumo.emAndamento = true;
     try {
-        const batch = db.batch();
-        batch.set(db.collection("configuracoes").doc("orcamento"), dadosConfiguracaoFirebase());
-        batch.set(db.collection("despesas").doc(), {
-            usuario: user.uid,
-            data,
-            descricao: `Compra: ${item.nome} (${formatarQuantidade(quantidade)} ${tipo === "filamento" ? "kg" : (item.unidade || "un")})`,
-            categoria: tipo === "filamento" ? "Insumos - Filamento" : `Insumos - ${item.categoria || "Outro"}`,
-            valor: valorTotal,
-            insumoId: item.id,
-            origem: "compra_insumo",
-            criadoEm: new Date()
+        const ref = db.collection("configuracoes").doc("orcamento");
+        const despesaRef = db.collection("despesas").doc();
+        const resultado = await db.runTransaction(async tx => {
+            const doc = await tx.get(ref);
+            const dados = LV.copiar(doc.exists ? { ...configuracaoBase, ...doc.data() } : configuracaoBase);
+            const campo = tipo === "filamento" ? "filamentos" : "insumosCadastrados";
+            const atual = dados[campo].find(item => item.id === id);
+            if (!atual) throw new Error("Item removido do cadastro. Recarregue a tela.");
+            const campoCusto = tipo === "filamento" ? "preco" : "custoUnitario";
+            const estoque = Number(atual.estoqueAtual || 0);
+            const custo = Number(atual[campoCusto] || 0);
+            if (!Number.isFinite(estoque) || estoque < 0 || !Number.isFinite(custo) || custo < 0) throw new Error("Estoque ou custo inválido.");
+            atual.estoqueAtual = estoque + quantidade;
+            atual[campoCusto] = (estoque * custo + valorTotal) / atual.estoqueAtual;
+            atual.fornecedor = fornecedor || atual.fornecedor || "";
+            atual.ultimaCompraData = data;
+            atual.ultimoPrecoCompra = valorTotal;
+            atual.historicoEstoque = [{ tipo: "entrada", data, quantidade, valorTotal, fornecedor: atual.fornecedor }, ...(atual.historicoEstoque || [])].slice(0, 50);
+            atual.controlarEstoque = true;
+            tx.set(ref, { [campo]: dados[campo] }, { merge: true });
+            tx.set(despesaRef, { usuario: user.uid, data,
+                descricao: "Compra: " + atual.nome + " (" + formatarQuantidade(quantidade) + " " + (tipo === "filamento" ? "kg" : (atual.unidade || "un")) + ")",
+                categoria: tipo === "filamento" ? "Insumos - Filamento" : "Insumos - " + (atual.categoria || "Outro"),
+                valor: valorTotal, insumoId: id, origem: "compra_insumo", criadoEm: new Date() });
+            return dados;
         });
-        await batch.commit();
+        aplicarConfiguracao(resultado);
         document.getElementById("quantidadeCompraInsumo").value = "";
         document.getElementById("valorCompraInsumo").value = "";
+        document.getElementById("fornecedorCompraInsumo").value = "";
         renderFilamentos();
         renderInsumosCadastrados();
         alert("Compra registrada. Estoque e Financeiro foram atualizados.");
-    } catch (erro) {
-        item.estoqueAtual = estoqueAnterior;
-        item[campoCusto] = custoAnterior;
-        item.controlarEstoque = controleAnterior;
-        console.error("Erro ao registrar compra de insumo:", erro);
-        alert("Não foi possível registrar a compra. Verifique as regras do Firebase.");
-    }
+    } catch (erro) { alert(erro.message || "Não foi possível registrar a compra."); }
+    finally { registrarCompraInsumo.emAndamento = false; }
 }
+
 
 function renderItensInsumosOrcamento() {
     const lista = document.getElementById("listaInsumosOrcamento");
@@ -698,7 +833,7 @@ function adicionarInsumoAoOrcamento() {
     }
     const existente = itensInsumosOrcamento.find(insumo => insumo.id === id);
     if (existente) existente.quantidade += quantidade;
-    else itensInsumosOrcamento.push({ id: item.id, nome: item.nome, unidade: item.unidade, custoUnitario: Number(item.custoUnitario), quantidade });
+    else itensInsumosOrcamento.push({ id: item.id, nome: item.nome, categoria: item.categoria || "", unidade: item.unidade, custoUnitario: Number(item.custoUnitario), quantidade });
     document.getElementById("quantidadeInsumo").value = "1";
     renderItensInsumosOrcamento();
     calcular();
@@ -727,6 +862,18 @@ function preencherSelects() {
 function num(id) { return parseFloat(document.getElementById(id).value) || 0; }
 function horas(hId, mId) { return num(hId) + (num(mId) / 60); }
 
+function zerarResultadoOrcamento() {
+    calculoAtual = { custoFilamento: 0, custoEnergia: 0, custoImpressora: 0, custoTrabalho: 0,
+        custoPreparacao: 0, insumos: 0, embalagem: 0, custoEmbalagensCadastradas: 0,
+        custoInsumosCadastrados: 0, subtotal: 0, custoUnitario: 0, precoMinimo: 0,
+        precoSugerido: 0, precoRecomendado: 0, precoMarketplace: 0,
+        lucroDireto: 0, lucroMarketplace: 0, margemDireta: 0, total: 0 };
+    ["dFilamento", "dEnergia", "dImpressora", "dTrabalho", "dPreparacao", "dInsumosCadastrados",
+        "dExtras", "custoUnitario", "precoMinimo", "precoSugerido", "precoMarketplace",
+        "lucroEstimado", "precoTotal"].forEach(id => { document.getElementById(id).innerText = "0.00"; });
+    document.getElementById("margemEstimada").innerText = "0.0";
+}
+
 function calcular() {
     const imp = IMPRESSORAS.find(i => i.id === document.getElementById("impressora").value) || IMPRESSORAS[0];
     const fil = FILAMENTOS.find(f => f.id === document.getElementById("filamento").value) || FILAMENTOS[0];
@@ -741,45 +888,83 @@ function calcular() {
     const custoInsumosCadastrados = itensInsumosOrcamento.reduce((total, item) => {
         return total + (Number(item.quantidade || 0) * Number(item.custoUnitario || 0));
     }, 0);
+    const custoEmbalagensCadastradas = itensInsumosOrcamento.reduce((total, item) => {
+        const cadastro = INSUMOS_CADASTRADOS.find(insumo => insumo.id === item.id);
+        const categoria = item.categoria || cadastro?.categoria || "";
+        return LV.nome(categoria) === "embalagem"
+            ? total + (Number(item.quantidade || 0) * Number(item.custoUnitario || 0)) : total;
+    }, 0);
+    const possuiDadosOrcamento = gramatura > 0 || tempoImp > 0 || tempoTrab > 0 || insumos > 0 || embalagem > 0
+        || itensInsumosOrcamento.some(item => Number(item.quantidade || 0) > 0);
+    if (!possuiDadosOrcamento) { zerarResultadoOrcamento(); return; }
     const markup = num("markup") || 1;
 
     const custoFilamento = (gramatura / 1000) * fil.preco;
     const custoEnergia = tempoImp * imp.consumo * PARAMS.energia;
     const custoImpressora = tempoImp * imp.depreciacao;
     const custoTrabalho = tempoTrab * PARAMS.trabalho;
-    const subtotal = custoFilamento + custoEnergia + custoImpressora + custoTrabalho + insumos + embalagem + custoInsumosCadastrados;
-    const custoComFalha = subtotal * (1 + PARAMS.falha / 100);
-    const precoSugerido = custoComFalha * markup;
-    const precoMarketplace = (precoSugerido / (1 - PARAMS.marketplace - PARAMS.imposto)) + PARAMS.taxaFixa;
+    const custoPreparacao = Number(PARAMS.preparacao || 0) / qtd;
+    const outrosInsumosCadastrados = custoInsumosCadastrados - custoEmbalagensCadastradas;
+    const embalagemTotal = embalagem + custoEmbalagensCadastradas;
+    const custoBase = custoFilamento + custoEnergia + custoImpressora + custoTrabalho + custoPreparacao + insumos + outrosInsumosCadastrados;
+    const subtotal = custoBase + embalagemTotal;
+    const preco = LV.precoOrcamento({ custoBase, embalagem: embalagemTotal, falhaPercentual: PARAMS.falha, markup,
+        margemSeguranca: PARAMS.margemSeguranca, arredondamento: PARAMS.arredondamento,
+        lucroMinimo: PARAMS.lucroMinimo, taxaVendaDireta: PARAMS.vendaDireta,
+        taxaMarketplace: PARAMS.marketplace, impostoMarketplace: PARAMS.imposto,
+        taxaFixaMarketplace: PARAMS.taxaFixa });
+    const custoComFalha = preco.custoUnitario;
+    const precoSugerido = preco.precoSugerido;
+    const precoMinimo = preco.precoMinimo;
+    const precoMarketplace = preco.precoMarketplace;
     const total = precoSugerido * qtd;
 
-    calculoAtual = { custoFilamento, custoEnergia, custoImpressora, custoTrabalho, insumos, embalagem, custoInsumosCadastrados, subtotal, custoUnitario: custoComFalha, precoSugerido, precoMarketplace, total };
+    calculoAtual = { custoFilamento, custoEnergia, custoImpressora, custoTrabalho, custoPreparacao, insumos, embalagem,
+        custoEmbalagensCadastradas, custoInsumosCadastrados, subtotal, custoUnitario: custoComFalha,
+        precoMinimo, precoSugerido, precoRecomendado: precoSugerido, precoMarketplace,
+        lucroDireto: preco.lucroDireto, lucroMarketplace: preco.lucroMarketplace,
+        margemDireta: preco.margemDireta, total };
 
     const m = v => Number(v || 0).toFixed(2);
     document.getElementById("dFilamento").innerText = m(custoFilamento);
     document.getElementById("dEnergia").innerText = m(custoEnergia);
     document.getElementById("dImpressora").innerText = m(custoImpressora);
     document.getElementById("dTrabalho").innerText = m(custoTrabalho);
+    document.getElementById("dPreparacao").innerText = m(custoPreparacao);
     document.getElementById("dInsumosCadastrados").innerText = m(custoInsumosCadastrados);
     document.getElementById("dExtras").innerText = m(insumos + embalagem);
     document.getElementById("custoUnitario").innerText = m(custoComFalha);
+    document.getElementById("precoMinimo").innerText = m(precoMinimo);
     document.getElementById("precoSugerido").innerText = m(precoSugerido);
     document.getElementById("precoMarketplace").innerText = m(precoMarketplace);
+    document.getElementById("lucroEstimado").innerText = m(preco.lucroDireto);
+    document.getElementById("margemEstimada").innerText = Number(preco.margemDireta || 0).toFixed(1);
     document.getElementById("precoTotal").innerText = m(total);
 }
 
 function aplicarEmbalagem() {
     const tipo = document.getElementById("embalagemTipo").value;
-    if (tipo !== "custom") document.getElementById("embalagem").value = tipo;
+    if (tipo === "custom") return;
+    if (tipo.startsWith("insumo:")) {
+        const item = INSUMOS_CADASTRADOS.find(insumo => insumo.id === tipo.slice(7));
+        document.getElementById("embalagem").value = Number(item?.custoUnitario || 0).toFixed(2);
+        return;
+    }
+    document.getElementById("embalagem").value = "0";
 }
 
-async function carregarOrcamentos() {
+function carregarOrcamentos() {
+    return protecaoArea.executar(lerOrcamentos);
+}
+
+async function lerOrcamentos() {
     const user = auth.currentUser;
-    orcamentos = [];
     const snapshot = await db.collection("orcamentos").where("usuario", "==", user.uid).get();
+    orcamentos = [];
     snapshot.forEach(doc => orcamentos.push({ docId: doc.id, ...doc.data() }));
     orcamentos.sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")));
     renderOrcamentos();
+    renderAlertasEstoque();
 }
 
 async function salvarOrcamento() {
@@ -814,7 +999,7 @@ async function salvarOrcamento() {
             usuario: user.uid,
             data: new Date().toISOString().slice(0, 10),
             cliente,
-            clienteId: "",
+            clienteId: orcamentoEditando ? (orcamentos.find(o => o.docId === orcamentoEditando)?.clienteId || "") : "",
             telefone,
             projeto,
             quantidade: qtd,
@@ -832,6 +1017,7 @@ async function salvarOrcamento() {
             markup: num("markup"),
             status: document.getElementById("status").value,
             tipo: "avulso",
+            modelo: document.getElementById("salvarComoModelo").checked,
             calculo: calculoAtual
         };
 
@@ -856,7 +1042,7 @@ async function salvarOrcamento() {
 
         if (salvarComoCliente && clienteInformado) {
             try {
-                const clienteId = await salvarCadastroCliente(user, cliente, telefone);
+                const clienteId = await salvarCadastroCliente(user, cliente, telefone, dados.clienteId);
                 await orcamentoRef.update({ clienteId, tipo: "cliente" });
             } catch (erroCliente) {
                 console.warn("Orçamento salvo, mas não foi possível cadastrar/vincular cliente:", erroCliente);
@@ -892,6 +1078,7 @@ function limparCampos() {
     document.getElementById("markup").value = 2;
     document.getElementById("status").value = "Orçado";
     document.getElementById("salvarComoCliente").checked = false;
+    document.getElementById("salvarComoModelo").checked = false;
     document.getElementById("statusOrcamento").innerText = "";
     document.getElementById("btnCancelar").style.display = "none";
     orcamentoEditando = null;
@@ -902,12 +1089,14 @@ function renderOrcamentos() {
     const tabela = document.getElementById("tabelaOrcamentos");
     const busca = document.getElementById("busca").value.toLowerCase();
     const filtro = document.getElementById("filtroStatus").value;
+    const filtroModelos = document.getElementById("filtroModelos").value;
     const m = v => Number(v || 0).toFixed(2);
 
     const lista = orcamentos.filter(o => {
         const txt = `${o.cliente || ""} ${o.projeto || ""}`.toLowerCase();
         if (busca && !txt.includes(busca)) return false;
         if (filtro && o.status !== filtro) return false;
+        if (filtroModelos === "modelos" && o.modelo !== true) return false;
         return true;
     });
 
@@ -920,7 +1109,7 @@ function renderOrcamentos() {
         <tr>
             <td>${escaparHTML(o.data || "")}</td>
             <td>${escaparHTML(o.cliente || "")}</td>
-            <td>${escaparHTML(o.projeto || "")}</td>
+            <td>${escaparHTML(o.projeto || "")}${o.modelo ? " · Modelo" : ""}</td>
             <td>${o.quantidade || 1}</td>
             <td>R$ ${m(o.calculo?.custoUnitario)}</td>
             <td>R$ ${m(o.calculo?.precoSugerido)}</td>
@@ -928,8 +1117,10 @@ function renderOrcamentos() {
             <td>${escaparHTML(o.status || "")}</td>
             <td>
                 <button onclick="editarOrcamento('${o.docId}')">Editar</button>
+                <button onclick="usarComoModelo('${o.docId}')">${o.modelo ? "Usar modelo" : "Duplicar orçamento"}</button>
                 <button onclick="enviarOrcamentoWhatsApp('${o.docId}')">📲 WhatsApp</button>
                 <button onclick="virarPedido('${o.docId}')">→ Virar pedido</button>
+                ${o.convertidoEmPedidoId || o.status === "Aprovado" ? `<button onclick="reutilizarComoPedido('${o.docId}')">↻ Reutilizar em novo pedido</button>` : ""}
                 <button onclick="excluirOrcamento('${o.docId}')" style="background:#b00020;">Excluir</button>
             </td>
         </tr>
@@ -967,10 +1158,28 @@ function editarOrcamento(id) {
     document.getElementById("embalagem").value = o.embalagem || 0;
     document.getElementById("markup").value = o.markup || 2;
     document.getElementById("status").value = o.status || "Orçado";
+    document.getElementById("salvarComoModelo").checked = o.modelo === true;
     document.getElementById("btnCancelar").style.display = "inline-block";
     orcamentoEditando = id;
     calcular();
     window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function usarComoModelo(id) {
+    const o = orcamentos.find(x => x.docId === id);
+    if (!o) return;
+    editarOrcamento(id);
+    document.getElementById("cliente").value = "";
+    document.getElementById("telefone").value = "";
+    document.getElementById("status").value = "Orçado";
+    document.getElementById("salvarComoCliente").checked = false;
+    orcamentoEditando = null;
+    calcular();
+    const antigo = Number(o.calculo?.custoUnitario || 0);
+    const atual = Number(calculoAtual?.custoUnitario || 0);
+    const diferenca = atual - antigo;
+    document.getElementById("comparacaoCustoModelo").innerText = `Custo quando este orçamento foi salvo: R$ ${antigo.toFixed(2)} · Custo com os parâmetros atuais: R$ ${atual.toFixed(2)} (${diferenca >= 0 ? "+" : ""}${diferenca.toFixed(2)}).`;
+    document.getElementById("statusOrcamento").innerText = "Modelo carregado. Informe o cliente e altere somente o necessário.";
 }
 
 async function excluirOrcamento(id) {
@@ -994,6 +1203,22 @@ function virarPedido(id) {
         valor: m(o.calculo?.precoSugerido),
         custo: m(o.calculo?.custoUnitario),
         orcamentoId: o.docId
+    });
+    window.location.href = `index.html?${params.toString()}`;
+}
+
+function reutilizarComoPedido(id) {
+    const o = orcamentos.find(x => x.docId === id);
+    if (!o) return;
+    const m = valor => Number(valor || 0).toFixed(2);
+    const params = new URLSearchParams({
+        aba: "producao",
+        produto: o.projeto || "",
+        qtd: String(o.quantidade || 1),
+        valor: m(o.calculo?.precoSugerido),
+        custo: m(o.calculo?.custoUnitario),
+        orcamentoId: o.docId,
+        reutilizarOrcamento: "1"
     });
     window.location.href = `index.html?${params.toString()}`;
 }

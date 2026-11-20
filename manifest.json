@@ -1,24 +1,33 @@
 {
   "name": "LV Maker PRO",
   "short_name": "LV Maker",
+  "id": "/index.html",
+  "scope": "/",
+  "lang": "pt-BR",
   "description": "Sistema de controle de pedidos e impressões",
   "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#f4f6f9",
   "theme_color": "#0f243e",
-  "orientation": "portrait",
+  "orientation": "any",
+  "shortcuts": [
+    { "name": "Produção e entregas", "url": "/index.html?aba=producao" },
+    { "name": "Orçamentos", "url": "/orcamentos.html" },
+    { "name": "Financeiro", "url": "/financeiro.html" },
+    { "name": "Produtos", "url": "/produtos.html" }
+  ],
   "icons": [
     {
-      "src": "icon.png",
+      "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "icon.png",
+      "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }

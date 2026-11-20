@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LV Maker PRO - Entregas e pagamento</title>
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f243e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script defer src="pwa.js?v=66"></script>
+</head>
+<body>
+<p id="avisoAcesso" role="status">Verificando acesso...</p>
+<div id="sistema" hidden>
+<h1>🚚 Entregas e pagamento</h1>
+<nav>
+    <a href="index.html">📋 Pedidos</a>
+    <a href="index.html?aba=producao">⚙️ Produção</a>
+    <a href="orcamentos.html">Orçamentos</a>
+    <a href="financeiro.html">📊 Financeiro</a>
+    <a href="produtos.html">🛍️ Produtos</a>
+    <a href="entregas.html" class="ativo">🚚 Entregas</a>
+</nav>
+<p class="card">Prepare as condições de entrega e pagamento da sua loja. A loja virtual continua usando o fluxo atual até a integração ser ativada e testada.</p>
+<form id="formEntregas" onsubmit="salvarConfiguracaoEntrega(event)">
+<fieldset id="camposEntrega" disabled style="border:0;padding:0;margin:0;">
+<section class="card">
+    <h2>Envios para outras cidades</h2>
+    <label for="cepOrigem">CEP de origem dos envios</label>
+    <input id="cepOrigem" inputmode="numeric" maxlength="9" placeholder="00000-000">
+    <label for="prazoProducao">Prazo de produção em dias úteis</label>
+    <input id="prazoProducao" type="number" min="0" max="365" step="1" placeholder="Informe seu prazo">
+    <label for="transportadora">Usar cotação do Melhor Envio</label>
+    <select id="transportadora"><option value="nao">Ainda não conectado</option><option value="sim">Sim, após conectar a conta</option></select>
+    <p>O cliente verá o prazo de produção separado do transporte. Para calcular o frete, cadastre também o peso e as dimensões da embalagem em Produtos.</p>
+</section>
+<section class="card">
+    <h2>Sua entrega em Guaramirim e Jaraguá do Sul — SC</h2>
+    <label for="entregaLocal">Oferecer entrega própria</label>
+    <select id="entregaLocal"><option value="nao">Ainda não</option><option value="sim">Sim, após ativação da integração</option></select>
+    <p>Cidades atendidas pela sua entrega:</p>
+    <label style="display:flex;align-items:center;gap:8px"><input id="cidadeGuaramirim" type="checkbox" style="width:18px;height:18px;margin:0"> Guaramirim</label>
+    <label style="display:flex;align-items:center;gap:8px"><input id="cidadeJaragua" type="checkbox" style="width:18px;height:18px;margin:0"> Jaraguá do Sul</label>
+    <label for="taxaLocal">Taxa de entrega (R$)</label>
+    <input id="taxaLocal" type="number" min="0" max="1000" step="0.01" placeholder="Defina o valor; 0 para gratuita">
+    <label for="gratisAcimaLocal">Entrega grátis em compras acima de (R$) — opcional</label>
+    <input id="gratisAcimaLocal" type="number" min="0.01" max="100000" step="0.01" placeholder="Ex.: 100; deixe vazio para desativar">
+    <p>Considera os produtos após os descontos, sem incluir frete. O valor deve ser maior que o informado: com R$ 100,00, a entrega grátis começa em R$ 100,01. Vale somente para sua entrega nas cidades selecionadas; transportadoras mantêm o preço normal.</p>
+    <label for="prazoLocal">Prazo de entrega após ficar pronto (dias úteis)</label>
+    <input id="prazoLocal" type="number" min="0" max="30" step="1" placeholder="Informe o prazo">
+    <label for="bairrosLocal">Bairros atendidos em Guaramirim — um por linha</label>
+    <textarea id="bairrosLocal" rows="4" maxlength="2000" placeholder="Deixe vazio para atender todos os bairros de Guaramirim" style="width:100%;"></textarea>
+    <label for="bairrosJaragua">Bairros atendidos em Jaraguá do Sul — um por linha</label>
+    <textarea id="bairrosJaragua" rows="4" maxlength="2000" placeholder="Liste os bairros; vazio significa todos os bairros de Jaraguá do Sul" style="width:100%;"></textarea>
+    <p>As listas são independentes. Para não oferecer entrega em uma cidade, desmarque-a acima.</p>
+    <label for="retirada">Oferecer retirada no local sem frete</label>
+    <select id="retirada"><option value="nao">Ainda não</option><option value="sim">Sim, após ativação da integração</option></select>
+</section>
+<section class="card" id="configuracaoPagamento">
+    <h2>InfinitePay</h2>
+    <label for="infiniteTag">Sua InfiniteTag</label>
+    <input id="infiniteTag" maxlength="100" placeholder="Identificação da sua conta, sem o $">
+    <p>Use a identificação exibida no aplicativo InfinitePay. Não informe senha, código de acesso ou token aqui.</p>
+    <label for="pagamentoAtivo">Pagamento na loja virtual</label>
+    <select id="pagamentoAtivo"><option value="nao">Desativado</option><option value="sim">Ativado após publicar e testar a integração</option></select>
+    <label><input id="repasseConfirmado" type="checkbox"> Já configurei na InfinitePay os juros pagos pelo cliente</label>
+    <label for="parcelas">Parcelamento desejado</label>
+    <select id="parcelas"><option value="12">Até 12x, com juros pagos pelo cliente</option></select>
+    <p>Esta é a preferência para a integração. O repasse dos juros ao cliente deve ser configurado na sua conta InfinitePay antes de ativar os pagamentos. A aplicação desta regra depende do checkout da InfinitePay.</p>
+</section>
+<button id="salvarEntregas" type="submit">Salvar configurações e ativação</button>
+<p>Este botão salva as opções de pagamento e entrega selecionadas acima.</p>
+<details><summary>Primeira configuração do remetente</summary>
+<p>Use somente antes de ativar as integrações. Depois confira a conexão, selecione as transportadoras e os pontos de postagem e use o botão Salvar configurações e ativação.</p>
+<button id="salvarRascunho" type="button" onclick="salvarConfiguracaoEntrega(event, true)">Salvar somente dados iniciais, sem ativar</button>
+</details>
+</fieldset>
+</form>
+<p id="resultadoEntrega" role="status" aria-live="polite"></p>
+<section class="card">
+    <h2>Conferir o cálculo de frete</h2>
+    <p>Após conectar a conta de frete, use este cálculo para conferir os serviços antes de disponibilizá-los na loja virtual. Nenhuma etiqueta ou cobrança será criada.</p>
+    <label for="produtoTeste">Produto</label><select id="produtoTeste"><option value="">Selecione</option></select>
+    <label for="quantidadeTeste">Quantidade</label><input id="quantidadeTeste" type="number" min="1" max="100" step="1" value="1">
+    <label for="cepTeste">CEP de destino</label><input id="cepTeste" inputmode="numeric" maxlength="9" placeholder="00000-000">
+    <button id="botaoCotacao" type="button" onclick="testarCotacaoFrete()">Consultar opções de entrega</button>
+    <div id="resultadoCotacao" role="status" aria-live="polite"></div>
+</section>
+</div>
+<script src="app.js?v=83"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
+<script src="integracoes.js?v=66"></script>
+<script src="entregas-servicos.js?v=66"></script>
+<script>
+const firebaseConfig = {
+    apiKey: "AIzaSyASqz8XoAhyD6w-klOr4HXlj_4URkQlBU8",
+    authDomain: "lv-maker.firebaseapp.com",
+    projectId: "lv-maker",
+    storageBucket: "lv-maker.firebasestorage.app",
+    messagingSenderId: "216355482221",
+    appId: "1:216355482221:web:5c3806b990538fa7dc6d64"
+};
+firebase.initializeApp(firebaseConfig);
+firebase.appCheck().activate(new firebase.appCheck.ReCaptchaEnterpriseProvider("6LcX5IItAAAAAMMojs5eGD6mDUWpnFozv-P_xmC_"), true);
+const db = firebase.firestore();
+const auth = firebase.auth();
+let configuracaoInicial = null;
+let carregouConfiguracao = false;
+let salvandoEntrega = false;
+const campo = id => document.getElementById(id);
+const valorCampo = id => campo(id).value.trim();
+function assinaturaConfiguracao(dados) {
+    // A ordem das propriedades pode mudar entre leituras do Firestore.
+    return JSON.stringify(dados, (_chave, valor) => {
+        if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return valor;
+        return Object.fromEntries(Object.keys(valor).sort().map(chave => [chave, valor[chave]]));
+    });
+}
+function numeroOpcional(id, maximo, inteiro = false) {
+    const texto = valorCampo(id);
+    if (!texto) return null;
+    const valor = Number(texto);
+    if (!Number.isFinite(valor) || valor < 0 || valor > maximo || (inteiro && !Number.isInteger(valor))) {
+        throw new Error('Confira os valores e prazos informados.');
+    }
+    return valor;
+}
+auth.onAuthStateChanged(async user => {
+    if (!user) { location.href = 'index.html'; return; }
+    try {
+        const admin = await db.collection('admins').doc(user.uid).get();
+        if (!admin.exists) { campo('avisoAcesso').textContent = 'Esta configuração está disponível apenas para administradores.'; return; }
+        const doc = await db.collection('configuracoes').doc('checkout').get({ source: 'server' });
+        configuracaoInicial = doc.exists ? doc.data() : null;
+        if (configuracaoInicial && configuracaoInicial.usuario !== user.uid) throw new Error('Configuração de outra loja.');
+        const c = configuracaoInicial || {};
+        carregarRemetenteServicos(c);
+        campo('cepOrigem').value = c.cepOrigem || '89270000';
+        campo('transportadora').value = c.transportadoraHabilitada ? 'sim' : 'nao';
+        campo('prazoProducao').value = c.prazoProducaoDias ?? '';
+        campo('entregaLocal').value = c.entregaLocal?.habilitada ? 'sim' : 'nao';
+        campo('taxaLocal').value = c.entregaLocal?.taxaCentavos == null ? '' : c.entregaLocal.taxaCentavos / 100;
+        campo('gratisAcimaLocal').value = c.entregaLocal?.gratisAcimaCentavos == null ? '' : c.entregaLocal.gratisAcimaCentavos / 100;
+        const cidadesLocal = c.entregaLocal?.cidades ?? ['Guaramirim'];
+        campo('cidadeGuaramirim').checked = cidadesLocal.includes('Guaramirim');
+        campo('cidadeJaragua').checked = cidadesLocal.includes('Jaraguá do Sul');
+        campo('prazoLocal').value = c.entregaLocal?.prazoDias ?? '';
+        campo('bairrosLocal').value = (c.entregaLocal?.bairrosPorCidade?.['Guaramirim'] ?? c.entregaLocal?.bairros ?? []).join('\n');
+        campo('bairrosJaragua').value = (c.entregaLocal?.bairrosPorCidade?.['Jaraguá do Sul'] ?? c.entregaLocal?.bairros ?? []).join('\n');
+        campo('retirada').value = c.retiradaHabilitada ? 'sim' : 'nao';
+        campo('infiniteTag').value = c.infiniteTag || 'lvmaker3d';
+        campo('pagamentoAtivo').value = c.pagamentoAtivo ? 'sim' : 'nao';
+        campo('repasseConfirmado').checked = c.repasseConfirmado === true;
+        campo('parcelas').value = '12';
+        carregouConfiguracao = true;
+        campo('camposEntrega').disabled = false;
+        campo('avisoAcesso').hidden = true;
+        campo('sistema').hidden = false;
+        carregarProdutosTeste().catch(erro => {
+            console.warn('Erro ao carregar produtos para cotação:', erro);
+            campo('resultadoCotacao').textContent = 'Não foi possível carregar produtos. Recarregue para tentar novamente.';
+        });
+    } catch (erro) {
+        console.error('Erro ao carregar configurações de entrega:', erro);
+        campo('avisoAcesso').textContent = 'Não foi possível carregar as configurações. Confira a conexão e recarregue a página.';
+    }
+});
+async function salvarConfiguracaoEntrega(event, rascunho = false) {
+    event.preventDefault();
+    if (!carregouConfiguracao || salvandoEntrega || !auth.currentUser) return;
+    if (!navigator.onLine) { campo('resultadoEntrega').textContent = 'Conecte-se à internet para salvar.'; return; }
+    salvandoEntrega = true;
+    const user = auth.currentUser;
+    campo('salvarEntregas').disabled = true;
+    campo('salvarRascunho').disabled = true;
+    try {
+        if (rascunho && (valorCampo('pagamentoAtivo') === 'sim' || configuracaoInicial?.pagamentoAtivo === true || configuracaoInicial?.transportadoraHabilitada === true)) {
+            throw new Error('Para guardar suas opções de pagamento e entrega, clique em Salvar configurações e ativação. O salvamento inicial não foi realizado para evitar desativar sua loja.');
+        }
+        const cepOrigem = valorCampo('cepOrigem').replace(/\D/g, '');
+        if (cepOrigem && !/^[0-9]{8}$/.test(cepOrigem)) throw new Error('Informe um CEP de origem com 8 dígitos.');
+        const transportadoraHabilitada = !rascunho && valorCampo('transportadora') === 'sim';
+        if (transportadoraHabilitada && !cepOrigem) throw new Error('Defina o CEP de origem antes de habilitar as transportadoras.');
+        const local = valorCampo('entregaLocal') === 'sim';
+        const taxa = numeroOpcional('taxaLocal', 1000);
+        const prazo = numeroOpcional('prazoLocal', 30, true);
+        const gratisAcima = numeroOpcional('gratisAcimaLocal', 100000);
+        if (gratisAcima !== null && LV.centavos(gratisAcima) <= 0) throw new Error('Informe um valor maior que zero para a entrega grátis ou deixe vazio para desativar.');
+        const cidades = [campo('cidadeGuaramirim').checked ? 'Guaramirim' : null, campo('cidadeJaragua').checked ? 'Jaraguá do Sul' : null].filter(Boolean);
+        if (local && !cidades.length) throw new Error('Selecione ao menos uma cidade para sua entrega.');
+        if (local && (taxa === null || prazo === null)) throw new Error('Defina a taxa e o prazo para oferecer sua entrega local.');
+        const tag = valorCampo('infiniteTag').replace(/^\$/, '');
+        if (tag && !/^[a-zA-Z0-9_.-]{1,100}$/.test(tag)) throw new Error('Confira sua InfiniteTag.');
+        const pagamentoAtivo = !rascunho && valorCampo('pagamentoAtivo') === 'sim';
+        const repasseConfirmado = campo('repasseConfirmado').checked;
+        if (pagamentoAtivo && (!tag || !repasseConfirmado)) throw new Error('Informe sua InfiniteTag e confirme o repasse dos juros antes de ativar.');
+        if (pagamentoAtivo && !local && valorCampo('retirada') !== 'sim' && valorCampo('transportadora') !== 'sim') throw new Error('Configure ao menos uma opção de entrega ou retirada antes de ativar.');
+        const dados = {
+            ...dadosRemetenteServicos(transportadoraHabilitada, cepOrigem),
+            cepOrigem, prazoProducaoDias: numeroOpcional('prazoProducao', 365, true), transportadoraHabilitada,
+            entregaLocal: { habilitada: local, cidade: 'Guaramirim', cidades, uf: 'SC', taxaCentavos: taxa === null ? null : LV.centavos(taxa), gratisAcimaCentavos: gratisAcima === null ? null : LV.centavos(gratisAcima), prazoDias: prazo,
+                bairros: [...new Set(valorCampo('bairrosLocal').split('\n').map(s => s.trim()).filter(Boolean))],
+                bairrosPorCidade: {
+                    'Guaramirim': [...new Set(valorCampo('bairrosLocal').split('\n').map(s => s.trim()).filter(Boolean))],
+                    'Jaraguá do Sul': [...new Set(valorCampo('bairrosJaragua').split('\n').map(s => s.trim()).filter(Boolean))]
+                } },
+            retiradaHabilitada: valorCampo('retirada') === 'sim', infiniteTag: tag, pagamentoAtivo, repasseConfirmado,
+            parcelamentoDesejado: { maxParcelas: 12, minimoCentavos: null, juros: 'cliente' }
+        };
+        const ref = db.collection('configuracoes').doc('checkout');
+        await db.runTransaction(async tx => {
+            const doc = await tx.get(ref);
+            const atual = doc.exists ? doc.data() : null;
+            if (atual && atual.usuario !== user.uid) throw new Error('Configuração de outra loja.');
+            if (assinaturaConfiguracao(atual) !== assinaturaConfiguracao(configuracaoInicial)) throw new Error('As configurações foram alteradas desde que você abriu esta página. Guarde os dados que digitou, atualize a página e confira os valores antes de salvar novamente.');
+            tx.set(ref, { ...dados, ...(doc.exists ? {} : { usuario: user.uid }), atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        });
+        // Nova leitura confirma os valores de servidor para a próxima edição.
+        const salvo = await ref.get({ source: 'server' });
+        configuracaoInicial = salvo.data();
+        if (rascunho) {
+            campo('transportadora').value = 'nao';
+            campo('pagamentoAtivo').value = 'nao';
+        }
+        campo('resultadoEntrega').textContent = rascunho ? 'Dados salvos sem ativar pagamento e transportadoras. Agora clique em Conferir conexão e transportadoras.' : pagamentoAtivo ? 'Configurações salvas. Confira uma compra de teste antes de divulgar o pagamento.' : 'Configurações salvas. O pagamento online está desativado.';
+    } catch (erro) {
+        console.error('Erro ao salvar configurações de entrega:', erro);
+        campo('resultadoEntrega').textContent = erro.code ? 'Não foi possível salvar. Confira sua conexão e acesso.' : erro.message;
+    } finally { salvandoEntrega = false; campo('salvarEntregas').disabled = false; campo('salvarRascunho').disabled = false; }
+}
+async function carregarProdutosTeste() {
+    const snapshot = await db.collection('produtos').where('ativo', '==', true).get();
+    snapshot.forEach(doc => {
+        const option = document.createElement('option');
+        option.value = doc.id;
+        option.textContent = doc.data().nome || 'Produto';
+        campo('produtoTeste').appendChild(option);
+    });
+}
+async function testarCotacaoFrete() {
+    if (campo('botaoCotacao').disabled) return;
+    const cep = valorCampo('cepTeste').replace(/\D/g, '');
+    const produtoId = valorCampo('produtoTeste');
+    const qtd = Number(valorCampo('quantidadeTeste'));
+    if (!/^[0-9]{8}$/.test(cep) || !produtoId || !Number.isInteger(qtd) || qtd < 1 || qtd > 100) {
+        campo('resultadoCotacao').textContent = 'Selecione um produto, a quantidade e um CEP válido.';
+        return;
+    }
+    campo('botaoCotacao').disabled = true;
+    campo('resultadoCotacao').textContent = 'Consultando opções de entrega...';
+    try {
+        if (!carregouConfiguracao || salvandoEntrega) throw new Error('Aguarde o carregamento e salve as configurações antes de consultar.');
+        const funcao = configuracaoInicial?.transportadoraHabilitada ? 'cotarFrete' : 'cotarEntregaLocal';
+        const result = await LVIntegracoes.chamar(funcao, { cep, itens: [{ produtoId, qtd }] });
+        const dados = result.data;
+        const lista = document.createElement('ul');
+        dados.opcoes.forEach(opcao => {
+            const li = document.createElement('li');
+            li.textContent = `${opcao.nome}: ${(opcao.precoCentavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} — ${opcao.prazoDias} dia(s) útil(eis) após ficar pronto`;
+            lista.appendChild(li);
+        });
+        const info = document.createElement('p');
+        info.textContent = `${dados.cidade}/${dados.uf}${dados.ambiente === 'sandbox' ? ' — Cotação de teste; valores não válidos para venda.' : ''}. ${dados.aviso || ''}`;
+        campo('resultadoCotacao').replaceChildren(info, lista);
+    } catch (erro) {
+        console.warn('Erro de cotação:', erro);
+        campo('resultadoCotacao').textContent = erro.code === 'functions/failed-precondition' || erro.code === 'functions/invalid-argument'
+            ? erro.message : 'Não foi possível cotar. Confira a conexão, as configurações e se a integração de frete já foi ativada.';
+    } finally { campo('botaoCotacao').disabled = false; }
+}
+</script>
+</body>
+</html>

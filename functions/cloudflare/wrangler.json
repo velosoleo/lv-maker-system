@@ -1,0 +1,23 @@
+{
+  "name": "lv-maker-integracoes",
+  "account_id": "8ab024b57cd1f7b7521e96c14aa7a815",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-07",
+  "workers_dev": true,
+  "observability": { "enabled": false },
+  "alias": {
+    "firebase-admin/app": "./shims/app.cjs",
+    "firebase-admin/firestore": "./shims/firestore.cjs",
+    "firebase-functions/v2/https": "./shims/https.cjs",
+    "firebase-functions/params": "./shims/params.cjs"
+  },
+  "vars": {
+    "FIREBASE_PROJECT_ID": "lv-maker",
+    "FIREBASE_PROJECT_NUMBER": "216355482221",
+    "FIREBASE_APP_ID": "1:216355482221:web:5c3806b990538fa7dc6d64",
+    "CHECKOUT_SITE_URL": "https://lv-maker.web.app",
+    "CHECKOUT_WEBHOOK_BASE_URL": "https://lv-maker-integracoes.lv-maker-system.workers.dev",
+    "MELHOR_ENVIO_CONTATO": "velosoleo@live.com",
+    "MELHOR_ENVIO_SANDBOX": "false"
+  }
+}

@@ -16,6 +16,10 @@ node_modules/
 # Variáveis de ambiente / credenciais
 .env
 .env.local
+.env.*
+.dev.vars
+.dev.vars.*
+.wrangler/
 
 # Build
 dist/

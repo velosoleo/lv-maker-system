@@ -60,6 +60,28 @@ service cloud.firestore {
         && request.resource.data.usuario == resource.data.usuario;
     }
 
+    match /parcelamentosClientes/{parcelamentoId} {
+      allow create: if signedIn()
+        && request.resource.data.usuario == request.auth.uid;
+      allow read, delete: if isOwner(resource.data.usuario);
+      allow update: if isOwner(resource.data.usuario)
+        && request.resource.data.usuario == resource.data.usuario;
+    }
+
+    match /pushTokens/{tokenId} {
+      allow create: if signedIn()
+        && request.resource.data.usuario == request.auth.uid
+        && request.resource.data.token is string
+        && request.resource.data.token.size() >= 20
+        && request.resource.data.token.size() <= 4096
+        && request.resource.data.ativo == true;
+      allow read, delete: if isOwner(resource.data.usuario);
+      allow update: if isOwner(resource.data.usuario)
+        && request.resource.data.usuario == resource.data.usuario
+        && request.resource.data.token == resource.data.token
+        && request.resource.data.ativo is bool;
+    }
+
     match /pedidosCatalogo/{pedidoCatalogoId} {
       // Pedidos do catálogo são públicos. Por isso, só aceitamos exatamente
       // o formato criado pelo catálogo e nunca permitimos leitura/alteração
@@ -99,6 +121,28 @@ service cloud.firestore {
     match /categorias/{categoriaId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    match /cotacoesFrete/{cotacaoId} {
+      // Os valores são calculados no servidor. Visitantes nunca escrevem cotações.
+      allow read: if isAdmin() && isOwner(resource.data.usuario);
+      allow write: if false;
+    }
+
+    match /checkouts/{checkoutId} {
+      allow read: if isAdmin() && isOwner(resource.data.usuario);
+      allow write: if false;
+    }
+    match /transacoesInfinitepay/{transactionId} {
+      allow read: if isAdmin() && isOwner(resource.data.usuario);
+      allow write: if false;
+    }
+    match /limitesCheckout/{limiteId} {
+      allow read, write: if false;
+    }
+    match /envios/{envioId} {
+      allow read: if isAdmin() && isOwner(resource.data.usuario);
+      allow write: if false;
     }
 
     match /configuracoes/banner {

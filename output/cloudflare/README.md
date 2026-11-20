@@ -1,0 +1,1 @@
+This folder contains the built output assets for the worker "lv-maker-integracoes" generated at 2026-10-08T01:33:26.581Z.

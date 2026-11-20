@@ -7,11 +7,36 @@
 <link rel="stylesheet" href="style.css">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f243e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script defer src="pwa.js?v=66"></script>
+<style>
+.contas-resumo { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:12px 0; }
+.conta-cliente { border:1px solid #d9e0e7; border-radius:10px; margin:12px 0; overflow:hidden; }
+.conta-cliente > header { background:#f4f6f9; padding:12px; display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+.conta-cliente table { margin:0; }
+.acoes-cobranca-cliente { display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
+.acoes-cobranca-cliente label { display:inline-flex; align-items:center; gap:5px; margin:0; }
+.acoes-cobranca-cliente input { width:auto; margin:0; }
+.periodo-financeiro { color:#526176; margin:4px 0 14px; }
+.grafico-financeiro { position:relative; min-height:260px; margin-top:18px; }
+.grafico-vazio { color:#777; text-align:center; padding:36px 12px; }
+.situacao-atrasada { color:#b42318; font-weight:700; }
+.situacao-hoje { color:#a15c00; font-weight:700; }
+.situacao-aberta { color:#176b3a; font-weight:700; }
+.fechamento-cabecalho { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+.fechamento-cabecalho h3, .fechamento-cabecalho p { margin-top:0; }
+.fechamento-cabecalho button { width:auto; margin:0; }
+.comparacao-mensal { padding:12px; border-radius:8px; background:#f4f7fa; color:#344054; }
+@media (max-width:700px) { .conta-cliente { overflow-x:auto; } .conta-cliente table { min-width:680px; } }
+@media (max-width:700px) { .fechamento-cabecalho { flex-direction:column; } .fechamento-cabecalho button { width:100%; } }
+</style>
 </head>
  
 <body>
  
 <div id="sistema" style="display:none;">
+<p id="avisoGrafico" role="status" hidden>O gráfico está indisponível. Os valores e as listas continuam disponíveis.</p>
  
 <h1>📊 LV Maker PRO</h1>
  
@@ -21,8 +46,9 @@
     <a href="orcamentos.html">Orçamentos</a>
     <a href="financeiro.html" class="ativo">📊 Financeiro</a>
     <a href="produtos.html">🛍️ Produtos</a>
+    <a href="entregas.html">🚚 Entregas</a>
 </nav>
- 
+
 <div class="card">
     <label>Período dos pedidos e despesas:</label>
     <select id="filtroMes" onchange="atualizarFinanceiro()">
@@ -45,40 +71,128 @@
     </select>
     <button onclick="auth.signOut()">Sair</button>
 </div>
- 
-<div class="card">
-    <h3>📊 Dashboard</h3>
+
+<div class="card" id="resumoFaturamento">
+    <h3>📊 Faturamento do período</h3>
+    <p id="periodoFinanceiroSelecionado" class="periodo-financeiro">Carregando período...</p>
     <div class="dashboard">
         <div class="box">
-            <strong>Faturamento previsto</strong>
-            <p>R$ <span id="totalVendas">0.00</span></p>
+            <strong>Vendas realizadas</strong>
+            <p>R$ <span id="totalVendas">0,00</span></p>
         </div>
         <div class="box">
-            <strong>Recebido</strong>
-            <p>R$ <span id="totalRecebido">0.00</span></p>
+            <strong>Valor recebido</strong>
+            <p>R$ <span id="totalRecebido">0,00</span></p>
         </div>
         <div class="box">
             <strong>Despesas</strong>
-            <p>R$ <span id="totalDespesas">0.00</span></p>
+            <p>R$ <span id="totalDespesas">0,00</span></p>
         </div>
         <div class="box box-clicavel" onclick="togglePendentes()">
-            <strong>Pendentes</strong>
-            <p>R$ <span id="totalPendente">0.00</span></p>
+            <strong>A receber</strong>
+            <p>R$ <span id="totalPendente">0,00</span></p>
             <small>Clique para ver clientes</small>
         </div>
         <div class="box">
             <strong>Lucro previsto</strong>
-            <p>R$ <span id="totalLucroPrevisto">0.00</span></p>
+            <p>R$ <span id="totalLucroPrevisto">0,00</span></p>
         </div>
         <div class="box">
-            <strong>Resultado realizado</strong>
-            <p>R$ <span id="totalLucroRealizado">0.00</span></p>
+            <strong>Resultado recebido</strong>
+            <p>R$ <span id="totalLucroRealizado">0,00</span></p>
         </div>
         <div class="box">
-            <strong>Pedidos</strong>
+            <strong>Quantidade de pedidos</strong>
             <p><span id="qtdPedidos">0</span></p>
         </div>
     </div>
+    <h4>📈 Vendas, recebimentos, lucro e despesas por mês</h4>
+    <div class="grafico-financeiro">
+        <canvas id="grafico" height="120"></canvas>
+        <p id="graficoSemDados" class="grafico-vazio" hidden>Nenhum faturamento ou despesa encontrado neste período.</p>
+    </div>
+    <p id="avisosFinanceiros" role="status" style="color:#856404"></p>
+</div>
+
+<div class="card" id="fechamentoMensal">
+    <div class="fechamento-cabecalho">
+        <div><h3>🗓️ Fechamento mensal</h3><p>Resultado consolidado do mês selecionado e comparação com o mês anterior.</p></div>
+        <button type="button" onclick="gerarRelatorioMensal()">Gerar relatório mensal</button>
+    </div>
+    <div class="dashboard fechamento-grade">
+        <div class="box"><strong>Total vendido</strong><p>R$ <span id="fechamentoVendido">0,00</span></p></div>
+        <div class="box"><strong>Total recebido</strong><p>R$ <span id="fechamentoRecebido">0,00</span></p></div>
+        <div class="box"><strong>Ainda pendente</strong><p>R$ <span id="fechamentoPendente">0,00</span></p></div>
+        <div class="box"><strong>Despesas</strong><p>R$ <span id="fechamentoDespesas">0,00</span></p></div>
+        <div class="box"><strong>Taxas reais</strong><p>R$ <span id="fechamentoTaxas">0,00</span></p></div>
+        <div class="box"><strong>Lucro estimado</strong><p>R$ <span id="fechamentoLucroEstimado">0,00</span></p></div>
+        <div class="box"><strong>Lucro realizado</strong><p>R$ <span id="fechamentoLucroRealizado">0,00</span></p></div>
+    </div>
+    <p id="comparacaoMesAnterior" class="comparacao-mensal"></p>
+</div>
+
+<div class="card">
+    <h3>📅 Contas a receber</h3>
+    <p>Parcelas e pedidos em aberto, agrupados por cliente.</p>
+    <div class="contas-resumo">
+        <div class="box"><strong>Total em aberto</strong><p>R$ <span id="contasTotalAberto">0.00</span></p></div>
+        <div class="box"><strong>Total atrasado</strong><p>R$ <span id="contasTotalAtrasado">0.00</span></p></div>
+        <div class="box"><strong>Vencem hoje</strong><p><span id="contasVencemHoje">0</span></p></div>
+    </div>
+    <label for="filtroContasReceber">Mostrar</label>
+    <select id="filtroContasReceber" onchange="renderContasReceber()">
+        <option value="abertas">Todas em aberto</option>
+        <option value="atrasadas">Somente atrasadas</option>
+        <option value="hoje">Vencem hoje</option>
+        <option value="proximas">Próximos vencimentos</option>
+    </select>
+    <div id="listaContasReceber"></div>
+</div>
+
+<div class="card" id="cardRecebimentoFinanceiro" hidden>
+    <h3>💰 Registrar recebimento</h3>
+    <p id="resumoRecebimentoFinanceiro"></p>
+    <label for="dataRecebimentoFinanceiro">Data</label>
+    <input id="dataRecebimentoFinanceiro" type="date">
+    <label for="formaRecebimentoFinanceiro">Forma</label>
+    <select id="formaRecebimentoFinanceiro"><option>Pix</option><option>Dinheiro</option><option>Cartão</option><option>Transferência</option><option>Outro</option></select>
+    <label for="valorRecebimentoFinanceiro">Valor (R$)</label>
+    <input id="valorRecebimentoFinanceiro" type="number" min="0.01" step="0.01">
+    <label for="origemRecebimentoFinanceiro">Origem da venda</label>
+    <select id="origemRecebimentoFinanceiro"><option value="direta">Venda direta</option><option value="infinitepay">InfinitePay</option><option value="marketplace">Marketplace</option><option value="outro">Outro</option></select>
+    <label for="taxaRecebimentoFinanceiro">Taxa realmente descontada (R$)</label>
+    <input id="taxaRecebimentoFinanceiro" type="number" min="0" step="0.01" value="0">
+    <button id="salvarRecebimentoFinanceiro" onclick="registrarRecebimentoFinanceiro()">Confirmar pagamento</button>
+    <button type="button" onclick="fecharRecebimentoFinanceiro()">Cancelar</button>
+</div>
+
+<div class="card">
+    <h3>📅 Parcelamentos</h3>
+    <p>Clientes com R$ 100,00 ou mais em pedidos pendentes disponíveis para parcelar.</p>
+    <div id="listaParcelamentosFinanceiro"></div>
+</div>
+
+<div class="card" id="cardParcelamentoFinanceiro" hidden>
+    <h3>📅 Criar parcelamento</h3>
+    <p id="resumoParcelamentoFinanceiro"></p>
+    <input id="pedidosParcelamentoFinanceiro" type="hidden">
+    <label for="quantidadeParcelasFinanceiro">Quantidade de parcelas</label>
+    <select id="quantidadeParcelasFinanceiro">
+        <option value="2">2 vezes</option><option value="3">3 vezes</option><option value="4">4 vezes</option>
+        <option value="5">5 vezes</option><option value="6">6 vezes</option><option value="7">7 vezes</option>
+        <option value="8">8 vezes</option><option value="9">9 vezes</option><option value="10">10 vezes</option>
+        <option value="11">11 vezes</option><option value="12">12 vezes</option>
+    </select>
+    <label for="primeiroVencimentoFinanceiro">Primeiro vencimento</label>
+    <input id="primeiroVencimentoFinanceiro" type="date">
+    <button id="salvarParcelamentoFinanceiro" onclick="criarParcelamentoFinanceiro()">Criar parcelas</button>
+    <button type="button" onclick="fecharParcelamentoFinanceiro()">Cancelar</button>
+</div>
+
+<div class="card">
+    <h3>🧾 Pagamentos recebidos e recibos</h3>
+    <p>Envie pelo WhatsApp os comprovantes de parcelas e pagamentos já registrados.</p>
+    <div id="listaRecibosFinanceiro"></div>
 </div>
 
 <div class="card">
@@ -93,7 +207,8 @@
     <h3>➖ Registrar despesa</h3>
     <input id="dataDespesa" type="date" aria-label="Data da despesa">
     <input id="descricaoDespesa" placeholder="Descrição (ex.: filamento, embalagem)">
-    <input id="categoriaDespesa" placeholder="Categoria (opcional)">
+    <input id="categoriaDespesa" list="categoriasDespesasReais" placeholder="Categoria (opcional)">
+    <datalist id="categoriasDespesasReais"><option value="Frete subsidiado"></option><option value="Desconto ou promoção"></option><option value="Impostos"></option><option value="Taxa de marketplace"></option><option value="Materiais"></option><option value="Embalagem"></option></datalist>
     <input id="valorDespesa" type="number" min="0" step="0.01" placeholder="Valor">
     <button onclick="salvarDespesa()">Salvar despesa</button>
     <div id="listaDespesas"></div>
@@ -104,11 +219,6 @@
     <div id="listaPendentes"></div>
 </div>
  
-<div class="card">
-    <h3>📈 Faturamento, Lucro e Despesas por Mês</h3>
-    <canvas id="grafico" height="120"></canvas>
-</div>
- 
 </div>
  
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -117,6 +227,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
  
+<script src="app.js?v=83"></script>
+<script src="financeiro-regras.js?v=83"></script>
+<script src="estado-area.js?v=66"></script>
 <script>
 const firebaseConfig = {
     apiKey: "AIzaSyASqz8XoAhyD6w-klOr4HXlj_4URkQlBU8",
@@ -138,9 +251,14 @@ const auth = firebase.auth();
 let pedidos = [];
 let pagamentos = [];
 let despesas = [];
+let parcelamentosClientes = [];
 let graficoInstance = null;
 let mostrarPendentes = false;
 let clientesPendentesRenderizados = [];
+let contasReceberRenderizadas = [];
+let recebimentoFinanceiroAtivo = null;
+let parcelamentosFinanceiroRenderizados = [];
+let recibosFinanceiroRenderizados = [];
 
 function escaparHTML(valor) {
     return String(valor ?? "")
@@ -160,35 +278,34 @@ auth.onAuthStateChanged(user => {
     }
 });
  
+let carregandoArea = false;
+const estadoArea = LVEstadoArea.criar(document.getElementById('sistema'), carregarDados);
 async function carregarDados() {
     const user = auth.currentUser;
-    pedidos = [];
-    pagamentos = [];
-    despesas = [];
-    const pedidosSnapshot = await db.collection("pedidos").where("usuario", "==", user.uid).get();
-    let despesasSnapshot = null;
+    if (!user || carregandoArea) return;
+    carregandoArea = true;
+    estadoArea.carregando();
     try {
-        despesasSnapshot = await db.collection("despesas").where("usuario", "==", user.uid).get();
+        const snapshots = await Promise.all([
+            db.collection('pedidos').where('usuario', '==', user.uid).get(),
+            db.collection('despesas').where('usuario', '==', user.uid).get(),
+            db.collection('pagamentos').where('usuario', '==', user.uid).get(),
+            db.collection('parcelamentosClientes').where('usuario', '==', user.uid).get()
+        ]);
+        if (auth.currentUser?.uid !== user.uid) return;
+        pedidos = snapshots[0].docs.map(doc => ({ ...doc.data(), docId: doc.id })).filter(p => p.excluido !== true && p.cliente && p.produto && p.total > 0);
+        despesas = snapshots[1].docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+        pagamentos = snapshots[2].docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+        parcelamentosClientes = snapshots[3].docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+        preencherFiltroAnos();
+        atualizarFinanceiro();
+        estadoArea.pronto();
     } catch (erro) {
-        console.warn("Não foi possível carregar despesas:", erro);
-    }
-    try {
-        const pagamentosSnapshot = await db.collection("pagamentos").where("usuario", "==", user.uid).get();
-        pagamentosSnapshot.forEach(doc => pagamentos.push({ docId: doc.id, ...doc.data() }));
-    } catch (erro) {
-        console.warn("Não foi possível carregar pagamentos:", erro);
-    }
-    pedidosSnapshot.forEach(doc => {
-        const pedido = doc.data();
-        if (!pedido.cliente || !pedido.produto || pedido.total <= 0) return;
-        pedido.docId = doc.id;
-        pedidos.push(pedido);
-    });
-    despesasSnapshot?.forEach(doc => despesas.push({ docId: doc.id, ...doc.data() }));
-    preencherFiltroAnos();
-    atualizarFinanceiro();
+        console.warn('Não foi possível atualizar esta área:', erro);
+        estadoArea.falhou();
+    } finally { carregandoArea = false; }
 }
- 
+
 function getMes(item) {
     const dataRef = item.data || item.dataDespesa;
     if (!dataRef) return null;
@@ -217,13 +334,19 @@ function pedidosNoPeriodo() {
 }
 
 function valorPagoPedido(pedido) {
-    const registros = pagamentos.filter(pagamento => pagamento.pedidoId === pedido.docId);
+    const registros = LV.pagamentosDoPedido(pagamentos, pedido.docId);
     if (registros.length > 0) return registros.reduce((total, pagamento) => total + Number(pagamento.valor || 0), 0);
     return pedido.pago === "Sim" ? Number(pedido.total || 0) : 0;
 }
 
 function saldoPedido(pedido) {
     return Math.max(0, Number(pedido.total || 0) - valorPagoPedido(pedido));
+}
+
+function chaveAgrupamentoFinanceiro(item) {
+    const nome = LV.nome(item?.cliente);
+    const telefone = LV.telefone(item?.telefone);
+    return nome ? `cliente:${nome}:${telefone}` : LV.chaveCliente(item || {});
 }
 
 function despesasNoPeriodo() {
@@ -233,21 +356,366 @@ function despesasNoPeriodo() {
 function preencherFiltroAnos() {
     const filtro = document.getElementById("filtroAno");
     const anoAtual = filtro.value;
-    const anos = new Set([...pedidos, ...despesas]
+    const anos = new Set([...pedidos, ...despesas, ...LV.recebimentos(pedidos, pagamentos)]
         .map(item => getMes(item)?.slice(0, 4))
         .filter(Boolean));
     filtro.innerHTML = '<option value="">Todos os anos</option>'
         + [...anos].sort().reverse().map(ano => `<option value="${ano}">${ano}</option>`).join("");
-    filtro.value = anos.has(anoAtual) ? anoAtual : "";
+    const anoPreferido = anoAtual || String(new Date().getFullYear());
+    filtro.value = anos.has(anoPreferido) ? anoPreferido : "";
+}
+
+function formatarValorFinanceiro(valor) {
+    return Number(valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function atualizarTituloPeriodoFinanceiro() {
+    const mes = document.getElementById("filtroMes");
+    const ano = document.getElementById("filtroAno");
+    const nomeMes = mes.value ? mes.options[mes.selectedIndex].text : "Todos os meses";
+    const nomeAno = ano.value || "todos os anos";
+    document.getElementById("periodoFinanceiroSelecionado").innerText = mes.value
+        ? `${nomeMes} de ${nomeAno}`
+        : (ano.value ? `Ano de ${nomeAno}` : "Todo o período cadastrado");
 }
 
 function atualizarFinanceiro() {
     calcularDashboard();
+    renderFechamentoMensal();
     renderPendentes();
     renderDespesas();
     preencherClientesFinanceiros();
     renderResumoCliente();
-    gerarGrafico();
+    renderContasReceber();
+    renderParcelamentosFinanceiro();
+    renderRecibosFinanceiro();
+    try { gerarGrafico(); }
+    catch (erro) {
+        console.warn('Gráfico indisponível:', erro);
+        document.getElementById('avisoGrafico').hidden = false;
+    }
+}
+
+function chaveMesAnterior(chave) {
+    const [ano, mes] = chave.split("-").map(Number);
+    const data = new Date(ano, mes - 2, 1);
+    return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function chaveMesFechamento() {
+    const mes = document.getElementById("filtroMes").value || String(new Date().getMonth() + 1).padStart(2, "0");
+    const ano = document.getElementById("filtroAno").value || String(new Date().getFullYear());
+    return `${ano}-${mes}`;
+}
+
+function metricasMensais(chave) {
+    const pedidosMes = pedidos.filter(p => getMes(p) === chave);
+    const recebimentosMes = LV.recebimentos(pedidos, pagamentos).filter(r => getMes(r) === chave);
+    const despesasMes = despesas.filter(d => getMes(d) === chave);
+    const vendido = pedidosMes.reduce((s, p) => s + Number(p.total || 0), 0);
+    const recebido = recebimentosMes.reduce((s, r) => s + Number(r.valor || 0), 0);
+    const pendente = pedidosMes.reduce((s, p) => s + saldoPedido(p), 0);
+    const despesasTotal = despesasMes.reduce((s, d) => s + Number(d.valor || 0), 0);
+    const taxas = recebimentosMes.reduce((s, r) => s + Number(r.taxaReal || 0), 0);
+    const lucroEstimado = pedidosMes.reduce((s, p) => s + LV.lucro(p), 0) - despesasTotal - taxas;
+    const lucroRealizadoBruto = recebimentosMes.reduce((s, r) => {
+        const pedido = pedidos.find(p => p.docId === r.pedidoId);
+        return s + (pedido && Number(pedido.total) > 0 ? LV.lucro(pedido) * Number(r.valor || 0) / Number(pedido.total) : 0);
+    }, 0);
+    return { chave, vendido, recebido, pendente, despesas: despesasTotal, taxas,
+        lucroEstimado, lucroRealizado: lucroRealizadoBruto - despesasTotal - taxas, pedidos: pedidosMes.length };
+}
+
+function renderFechamentoMensal() {
+    const atual = metricasMensais(chaveMesFechamento());
+    const anterior = metricasMensais(chaveMesAnterior(atual.chave));
+    const campos = { fechamentoVendido: atual.vendido, fechamentoRecebido: atual.recebido,
+        fechamentoPendente: atual.pendente, fechamentoDespesas: atual.despesas, fechamentoTaxas: atual.taxas,
+        fechamentoLucroEstimado: atual.lucroEstimado, fechamentoLucroRealizado: atual.lucroRealizado };
+    Object.entries(campos).forEach(([id, valor]) => document.getElementById(id).textContent = formatarValorFinanceiro(valor));
+    const diferenca = atual.vendido - anterior.vendido;
+    const percentual = anterior.vendido > 0 ? Math.abs(diferenca) / anterior.vendido * 100 : null;
+    document.getElementById("comparacaoMesAnterior").textContent = anterior.vendido > 0
+        ? `As vendas ficaram ${percentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% ${diferenca >= 0 ? "acima" : "abaixo"} do mês anterior (R$ ${formatarValorFinanceiro(anterior.vendido)}).`
+        : "O mês anterior não possui vendas registradas para comparação.";
+}
+
+function gerarRelatorioMensal() {
+    const dados = metricasMensais(chaveMesFechamento());
+    const [ano, mes] = dados.chave.split("-");
+    const titulo = new Date(Number(ano), Number(mes) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+    const linhas = [["Total vendido", dados.vendido], ["Total recebido", dados.recebido], ["Ainda pendente", dados.pendente],
+        ["Despesas", dados.despesas], ["Taxas reais", dados.taxas], ["Lucro estimado", dados.lucroEstimado], ["Lucro realizado", dados.lucroRealizado]];
+    const janela = window.open("", "_blank");
+    if (!janela) { alert("Permita a abertura da janela para gerar o relatório."); return; }
+    janela.document.write(`<!doctype html><html lang="pt-br"><head><meta charset="utf-8"><title>Fechamento mensal</title><style>body{font:16px Arial;max-width:760px;margin:32px auto;color:#172b42}h1{border-bottom:2px solid #172b42;padding-bottom:12px}table{width:100%;border-collapse:collapse}td{padding:10px;border-bottom:1px solid #ddd}td:last-child{text-align:right;font-weight:bold}@media print{button{display:none}}</style></head><body><h1>LV Maker 3D</h1><h2>Fechamento de ${escaparHTML(titulo)}</h2><p>${dados.pedidos} pedido(s) registrado(s).</p><table>${linhas.map(([nome, valor]) => `<tr><td>${nome}</td><td>R$ ${formatarValorFinanceiro(valor)}</td></tr>`).join("")}</table><p><button onclick="window.print()">Imprimir ou salvar em PDF</button></p></body></html>`);
+    janela.document.close();
+}
+
+function hojeLocalISO() {
+    const agora = new Date();
+    return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}`;
+}
+
+function montarContasReceber() {
+    const contas = [];
+    const pedidosPorId = new Map(pedidos.map(pedido => [pedido.docId, pedido]));
+    const gruposValidos = new Set();
+
+    parcelamentosClientes.forEach(grupo => {
+        const pedidosGrupo = (grupo.pedidoIds || []).map(id => pedidosPorId.get(id)).filter(Boolean);
+        if (!pedidosGrupo.length) return;
+        gruposValidos.add(grupo.docId);
+        (grupo.parcelas || []).filter(parcela => !parcela.pago).forEach(parcela => contas.push({
+            tipo: "grupo", grupoId: grupo.docId, parcelaId: parcela.id,
+            cliente: grupo.cliente || pedidosGrupo[0].cliente || "Cliente sem nome",
+            telefone: grupo.telefone || pedidosGrupo[0].telefone || "", clienteId: pedidosGrupo[0].clienteId || "",
+            descricao: `Parcela ${parcela.numero}/${grupo.quantidade} · ${pedidosGrupo.length} pedidos`,
+            vencimento: parcela.vencimento || "", valor: Number(parcela.valor || 0)
+        }));
+    });
+
+    pedidos.forEach(pedido => {
+        if (saldoPedido(pedido) <= 0 || (pedido.parcelamentoGrupoId && gruposValidos.has(pedido.parcelamentoGrupoId))) return;
+        const parcelas = pedido.parcelamento?.parcelas || [];
+        if (parcelas.length) {
+            parcelas.filter(parcela => !parcela.pago).forEach(parcela => contas.push({
+                tipo: "parcela", pedidoId: pedido.docId, parcelaId: parcela.id,
+                cliente: pedido.cliente || "Cliente sem nome", telefone: pedido.telefone || "", clienteId: pedido.clienteId || "",
+                descricao: `Parcela ${parcela.numero}/${pedido.parcelamento.quantidade} · ${pedido.produto}`,
+                vencimento: parcela.vencimento || "", valor: Number(parcela.valor || 0)
+            }));
+        } else {
+            contas.push({ tipo: "pedido", pedidoId: pedido.docId, cliente: pedido.cliente || "Cliente sem nome",
+                telefone: pedido.telefone || "", clienteId: pedido.clienteId || "", descricao: pedido.produto || "Pedido",
+                vencimento: "", valor: saldoPedido(pedido) });
+        }
+    });
+    return contas;
+}
+
+function situacaoConta(conta, hoje) {
+    if (!conta.vencimento) return { chave: "sem-data", texto: "Sem vencimento", classe: "" };
+    if (conta.vencimento < hoje) return { chave: "atrasada", texto: "Atrasada", classe: "situacao-atrasada" };
+    if (conta.vencimento === hoje) return { chave: "hoje", texto: "Vence hoje", classe: "situacao-hoje" };
+    return { chave: "proxima", texto: "A vencer", classe: "situacao-aberta" };
+}
+
+function renderContasReceber() {
+    const destino = document.getElementById("listaContasReceber");
+    if (!destino) return;
+    const hoje = hojeLocalISO();
+    const todas = montarContasReceber().map(conta => ({ ...conta, situacao: situacaoConta(conta, hoje) }));
+    document.getElementById("contasTotalAberto").innerText = todas.reduce((soma, conta) => soma + conta.valor, 0).toFixed(2);
+    document.getElementById("contasTotalAtrasado").innerText = todas.filter(c => c.situacao.chave === "atrasada").reduce((s, c) => s + c.valor, 0).toFixed(2);
+    document.getElementById("contasVencemHoje").innerText = todas.filter(c => c.situacao.chave === "hoje").length;
+    const filtro = document.getElementById("filtroContasReceber").value;
+    const contas = todas.filter(conta => filtro === "abertas" || conta.situacao.chave === ({ atrasadas: "atrasada", hoje: "hoje", proximas: "proxima" })[filtro]);
+    contas.sort((a, b) => (a.vencimento || "9999").localeCompare(b.vencimento || "9999") || a.cliente.localeCompare(b.cliente, "pt-BR"));
+    contasReceberRenderizadas = contas;
+    if (!contas.length) { destino.innerHTML = '<p style="color:#777">Nenhuma conta encontrada neste filtro.</p>'; return; }
+    const grupos = new Map();
+    contas.forEach((conta, indice) => {
+        const chave = chaveAgrupamentoFinanceiro(conta);
+        if (!grupos.has(chave)) grupos.set(chave, { cliente: conta.cliente, telefone: conta.telefone, itens: [], total: 0 });
+        grupos.get(chave).itens.push({ conta, indice }); grupos.get(chave).total += conta.valor;
+    });
+    destino.innerHTML = [...grupos.values()].map(grupo => `<section class="conta-cliente"><header><strong>${escaparHTML(grupo.cliente)}</strong><div class="acoes-cobranca-cliente"><span>${escaparHTML(grupo.telefone || "Sem telefone")} · Em aberto: <strong>R$ ${grupo.total.toFixed(2)}</strong></span><label><input type="checkbox" onchange="selecionarCobrancasCliente(this)"> Selecionar todas</label><button type="button" onclick="enviarCobrancasSelecionadasCliente(this)">Enviar cobrança conjunta</button></div></header><table><thead><tr><th></th><th>Descrição</th><th>Vencimento</th><th>Situação</th><th>Valor</th><th>Ações</th></tr></thead><tbody>${grupo.itens.map(({ conta, indice }) => `<tr><td><input type="checkbox" class="conta-selecionada" data-indice="${indice}" aria-label="Selecionar ${escaparHTML(conta.descricao)}"></td><td>${escaparHTML(conta.descricao)}</td><td>${conta.vencimento ? formatarData(conta.vencimento) : "-"}</td><td class="${conta.situacao.classe}">${conta.situacao.texto}</td><td>R$ ${conta.valor.toFixed(2)}</td><td><button onclick="enviarCobrancaFinanceiro(${indice})">Enviar cobrança</button> <button onclick="abrirRecebimentoFinanceiro(${indice})">Registrar pagamento</button></td></tr>`).join("")}</tbody></table></section>`).join("");
+}
+
+function selecionarCobrancasCliente(controle) {
+    const grupo = controle.closest(".conta-cliente");
+    if (!grupo) return;
+    grupo.querySelectorAll(".conta-selecionada").forEach(check => { check.checked = controle.checked; });
+}
+
+function enviarCobrancasSelecionadasCliente(botao) {
+    const grupo = botao.closest(".conta-cliente");
+    if (!grupo) return;
+    const contas = [...grupo.querySelectorAll(".conta-selecionada:checked")]
+        .map(check => contasReceberRenderizadas[Number(check.dataset.indice)])
+        .filter(Boolean);
+    if (!contas.length) { alert("Selecione pelo menos uma cobrança desta cliente."); return; }
+    const primeira = contas[0];
+    const pedidosUnicos = new Map();
+    contas.forEach(conta => pedidosDaContaFinanceiro(conta).forEach(pedido => pedidosUnicos.set(pedido.docId, pedido)));
+    const itens = [...pedidosUnicos.values()].map(linhaFinanceiraProduto).join("\n");
+    const cobrancas = contas.map(conta => {
+        const vencimento = conta.vencimento ? ` · venc. ${formatarData(conta.vencimento)}` : "";
+        return `• ${conta.descricao}: R$ ${conta.valor.toFixed(2)}${vencimento}`;
+    }).join("\n");
+    const totalCentavos = contas.reduce((total, conta) => total + Math.round(Number(conta.valor || 0) * 100), 0);
+    const total = (totalCentavos / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    abrirWhatsAppFinanceiro(primeira.telefone, `Olá, ${primeira.cliente}!\n\nSegue a cobrança dos pedidos selecionados na LV Maker 3D.\n\n${itens}\n\n${cobrancas}\n\nTotal a pagar: R$ ${total}\n\nQualquer dúvida estou à disposição.`);
+}
+
+function abrirRecebimentoFinanceiro(indice) {
+    const conta = contasReceberRenderizadas[indice];
+    if (!conta) return;
+    recebimentoFinanceiroAtivo = conta;
+    document.getElementById("resumoRecebimentoFinanceiro").innerHTML = `<strong>${escaparHTML(conta.cliente)}</strong><br>${escaparHTML(conta.descricao)} · R$ ${conta.valor.toFixed(2)}`;
+    document.getElementById("dataRecebimentoFinanceiro").value = hojeLocalISO();
+    document.getElementById("valorRecebimentoFinanceiro").value = conta.valor.toFixed(2);
+    document.getElementById("valorRecebimentoFinanceiro").readOnly = conta.tipo !== "pedido";
+    document.getElementById("origemRecebimentoFinanceiro").value = "direta";
+    document.getElementById("taxaRecebimentoFinanceiro").value = "0";
+    const card = document.getElementById("cardRecebimentoFinanceiro"); card.hidden = false;
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function fecharRecebimentoFinanceiro() {
+    recebimentoFinanceiroAtivo = null;
+    document.getElementById("cardRecebimentoFinanceiro").hidden = true;
+}
+
+async function registrarRecebimentoFinanceiro() {
+    const conta = recebimentoFinanceiroAtivo, user = auth.currentUser;
+    const botao = document.getElementById("salvarRecebimentoFinanceiro");
+    const entrada = { data: document.getElementById("dataRecebimentoFinanceiro").value,
+        forma: document.getElementById("formaRecebimentoFinanceiro").value,
+        origem: document.getElementById("origemRecebimentoFinanceiro").value,
+        taxaReal: Number(document.getElementById("taxaRecebimentoFinanceiro").value || 0) };
+    const valor = Number(document.getElementById("valorRecebimentoFinanceiro").value);
+    if (!conta || !user || !entrada.data || !Number.isFinite(valor) || valor <= 0 || !Number.isFinite(entrada.taxaReal)
+        || entrada.taxaReal < 0 || entrada.taxaReal > valor || botao.disabled) { alert("Confira a data, o valor e a taxa do pagamento."); return; }
+    botao.disabled = true;
+    try {
+        if (conta.tipo === "grupo") await LV.registrarParcelaCliente(db, user.uid, conta.grupoId, conta.parcelaId, entrada);
+        else if (conta.tipo === "parcela") await LV.registrarParcela(db, user.uid, conta.pedidoId, conta.parcelaId, entrada);
+        else await LV.registrarPagamento(db, user.uid, conta.pedidoId, { ...entrada, valor });
+        fecharRecebimentoFinanceiro();
+        await carregarDados();
+    } catch (erro) { alert(erro.message || "Não foi possível registrar o pagamento."); }
+    finally { botao.disabled = false; }
+}
+
+function normalizarTelefoneWhatsAppFinanceiro(telefone) {
+    let numero = String(telefone || "").replace(/\D/g, "");
+    if (numero.length === 10 || numero.length === 11) numero = "55" + numero;
+    return numero;
+}
+
+function abrirWhatsAppFinanceiro(telefone, mensagem) {
+    const numero = normalizarTelefoneWhatsAppFinanceiro(telefone);
+    if (numero.length < 12) { alert("Este cliente não possui um WhatsApp válido cadastrado."); return; }
+    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`, "_blank");
+}
+
+function pedidosDaContaFinanceiro(conta) {
+    if (conta.tipo === "grupo") {
+        const grupo = parcelamentosClientes.find(item => item.docId === conta.grupoId);
+        return (grupo?.pedidoIds || []).map(id => pedidos.find(pedido => pedido.docId === id)).filter(Boolean);
+    }
+    const pedido = pedidos.find(item => item.docId === conta.pedidoId);
+    return pedido ? [pedido] : [];
+}
+
+function linhaFinanceiraProduto(pedido) {
+    return `• ${pedido.qtd || 1} un. — ${pedido.produto || "Produto"} — R$ ${Number(pedido.valor || 0).toFixed(2)}`;
+}
+
+function enviarCobrancaFinanceiro(indice) {
+    const conta = contasReceberRenderizadas[indice];
+    if (!conta) return;
+    const itens = pedidosDaContaFinanceiro(conta);
+    const lista = itens.map(linhaFinanceiraProduto).join("\n");
+    const vencimento = conta.vencimento ? formatarData(conta.vencimento) : "a combinar";
+    abrirWhatsAppFinanceiro(conta.telefone, `Olá, ${conta.cliente}!\n\nSegue a cobrança referente ao seu pedido na LV Maker 3D.\n\n${lista}\n\n${conta.descricao}\nValor a pagar: R$ ${conta.valor.toFixed(2)}\nVencimento: ${vencimento}\n\nQualquer dúvida estou à disposição.`);
+}
+
+function proximoMesFinanceiroISO() {
+    const data = new Date();
+    data.setMonth(data.getMonth() + 1);
+    return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
+}
+
+function montarCandidatosParcelamentoFinanceiro() {
+    const grupos = new Map();
+    pedidos.filter(pedido => saldoPedido(pedido) > 0 && !pedido.parcelamentoGrupoId && !pedido.parcelamento?.parcelas?.length).forEach(pedido => {
+        const chave = chaveAgrupamentoFinanceiro(pedido);
+        if (!grupos.has(chave)) grupos.set(chave, { cliente: pedido.cliente, telefone: pedido.telefone, pedidos: [], total: 0, saldo: 0 });
+        const grupo = grupos.get(chave);
+        grupo.pedidos.push(pedido);
+        grupo.total += Number(pedido.total || 0);
+        grupo.saldo += saldoPedido(pedido);
+    });
+    return [...grupos.values()].filter(grupo => grupo.total >= 100);
+}
+
+function renderParcelamentosFinanceiro() {
+    const destino = document.getElementById("listaParcelamentosFinanceiro");
+    parcelamentosFinanceiroRenderizados = montarCandidatosParcelamentoFinanceiro();
+    if (!parcelamentosFinanceiroRenderizados.length) { destino.innerHTML = '<p style="color:#777">Nenhum cliente disponível para novo parcelamento.</p>'; return; }
+    destino.innerHTML = parcelamentosFinanceiroRenderizados.map((grupo, indice) => `<section class="conta-cliente"><header><strong>${escaparHTML(grupo.cliente)}</strong><span>${grupo.pedidos.length} ${grupo.pedidos.length === 1 ? "pedido" : "pedidos"} · Saldo: <strong>R$ ${grupo.saldo.toFixed(2)}</strong></span></header><button onclick="abrirParcelamentoFinanceiro(${indice})">Criar parcelamento</button></section>`).join("");
+}
+
+function abrirParcelamentoFinanceiro(indice) {
+    const grupo = parcelamentosFinanceiroRenderizados[indice];
+    if (!grupo) return;
+    document.getElementById("pedidosParcelamentoFinanceiro").value = grupo.pedidos.map(pedido => pedido.docId).join(",");
+    document.getElementById("resumoParcelamentoFinanceiro").innerHTML = `<strong>${escaparHTML(grupo.cliente)}</strong><br>${grupo.pedidos.length} ${grupo.pedidos.length === 1 ? "pedido" : "pedidos"} · R$ ${grupo.saldo.toFixed(2)} a parcelar`;
+    document.getElementById("primeiroVencimentoFinanceiro").value = proximoMesFinanceiroISO();
+    const card = document.getElementById("cardParcelamentoFinanceiro"); card.hidden = false;
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function fecharParcelamentoFinanceiro() {
+    document.getElementById("cardParcelamentoFinanceiro").hidden = true;
+    document.getElementById("pedidosParcelamentoFinanceiro").value = "";
+}
+
+async function criarParcelamentoFinanceiro() {
+    const user = auth.currentUser;
+    const pedidoIds = document.getElementById("pedidosParcelamentoFinanceiro").value.split(",").filter(Boolean);
+    const quantidade = Number(document.getElementById("quantidadeParcelasFinanceiro").value);
+    const vencimento = document.getElementById("primeiroVencimentoFinanceiro").value;
+    const botao = document.getElementById("salvarParcelamentoFinanceiro");
+    if (!user || !pedidoIds.length || !vencimento || botao.disabled) return;
+    botao.disabled = true;
+    try {
+        await LV.criarParcelamentoCliente(db, user.uid, "", pedidoIds, quantidade, vencimento);
+        fecharParcelamentoFinanceiro();
+        await carregarDados();
+    } catch (erro) { alert(erro.message || "Não foi possível criar o parcelamento."); }
+    finally { botao.disabled = false; }
+}
+
+function montarRecibosFinanceiro() {
+    const recibos = [];
+    parcelamentosClientes.forEach(grupo => {
+        const itens = (grupo.pedidoIds || []).map(id => pedidos.find(pedido => pedido.docId === id)).filter(Boolean);
+        (grupo.parcelas || []).filter(parcela => parcela.pago).forEach(parcela => recibos.push({
+            cliente: grupo.cliente || itens[0]?.cliente || "Cliente", telefone: grupo.telefone || itens[0]?.telefone || "",
+            descricao: `Parcela ${parcela.numero}/${grupo.quantidade}`, valor: Number(parcela.valor || 0),
+            data: parcela.dataPagamento || "", forma: parcela.forma || "Não informada", itens
+        }));
+    });
+    pedidos.filter(pedido => !pedido.parcelamentoGrupoId).forEach(pedido => {
+        (pedido.parcelamento?.parcelas || []).filter(parcela => parcela.pago).forEach(parcela => recibos.push({
+            cliente: pedido.cliente, telefone: pedido.telefone, descricao: `Parcela ${parcela.numero}/${pedido.parcelamento.quantidade}`,
+            valor: Number(parcela.valor || 0), data: parcela.dataPagamento || "", forma: parcela.forma || pedido.pagamento || "Não informada", itens: [pedido]
+        }));
+    });
+    pagamentos.filter(pagamento => !pagamento.parcelaId && !pagamento.parcelamentoGrupoId).forEach(pagamento => {
+        const pedido = pedidos.find(item => item.docId === pagamento.pedidoId);
+        if (pedido) recibos.push({ cliente: pedido.cliente, telefone: pedido.telefone, descricao: "Pagamento recebido",
+            valor: Number(pagamento.valor || 0), data: pagamento.data || "", forma: pagamento.forma || "Não informada", itens: [pedido] });
+    });
+    return recibos.sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")));
+}
+
+function renderRecibosFinanceiro() {
+    const destino = document.getElementById("listaRecibosFinanceiro");
+    recibosFinanceiroRenderizados = montarRecibosFinanceiro();
+    if (!recibosFinanceiroRenderizados.length) { destino.innerHTML = '<p style="color:#777">Nenhum pagamento registrado para emitir recibo.</p>'; return; }
+    destino.innerHTML = `<table><thead><tr><th>Cliente</th><th>Pagamento</th><th>Data</th><th>Valor</th><th>Ação</th></tr></thead><tbody>${recibosFinanceiroRenderizados.map((recibo, indice) => `<tr><td>${escaparHTML(recibo.cliente)}</td><td>${escaparHTML(recibo.descricao)} · ${escaparHTML(recibo.forma)}</td><td>${formatarData(recibo.data)}</td><td>R$ ${recibo.valor.toFixed(2)}</td><td><button onclick="enviarReciboFinanceiro(${indice})">Enviar recibo</button></td></tr>`).join("")}</tbody></table>`;
+}
+
+function enviarReciboFinanceiro(indice) {
+    const recibo = recibosFinanceiroRenderizados[indice];
+    if (!recibo) return;
+    const itens = recibo.itens.map(linhaFinanceiraProduto).join("\n");
+    abrirWhatsAppFinanceiro(recibo.telefone, `Olá, ${recibo.cliente}!\n\nSegue o recibo do seu pagamento na LV Maker 3D.\n\n${itens}\n\n${recibo.descricao}\nValor recebido: R$ ${recibo.valor.toFixed(2)}\nData: ${formatarData(recibo.data)}\nForma: ${recibo.forma}\nStatus: PAGO\n\nPagamento recebido. Obrigado!`);
 }
  
 function calcularDashboard() {
@@ -256,29 +724,50 @@ function calcularDashboard() {
     let lucroRealizadoBruto = 0;
     let totalPendente = 0;
     let totalRecebido = 0;
+    let totalTaxasReais = 0;
     let qtdPedidos = 0;
  
-    pedidosNoPeriodo().forEach(p => {
+    const pedidosPeriodo = pedidosNoPeriodo();
+    pedidosPeriodo.forEach(p => {
         totalVendas += Number(p.total || 0);
-        lucroPrevistoBruto += Number(p.lucro || 0);
+        lucroPrevistoBruto += LV.lucro(p);
         qtdPedidos++;
  
-        const valorPago = valorPagoPedido(p);
-        const proporcaoRecebida = Number(p.total || 0) > 0 ? valorPago / Number(p.total) : 0;
-        totalRecebido += valorPago;
         totalPendente += saldoPedido(p);
-        lucroRealizadoBruto += Number(p.lucro || 0) * proporcaoRecebida;
     });
+
+    const recebimentos = LV.recebimentos(pedidos, pagamentos);
+    const recebimentosPeriodo = itensNoPeriodo(recebimentos);
+    recebimentosPeriodo.forEach(recebimento => {
+        const pedido = pedidos.find(p => p.docId === recebimento.pedidoId);
+        const valor = Number(recebimento.valor || 0);
+        totalRecebido += valor;
+        totalTaxasReais += Number(recebimento.taxaReal || 0);
+        if (pedido && Number(pedido.total) > 0) lucroRealizadoBruto += LV.lucro(pedido) * valor / Number(pedido.total);
+    });
+    const pedidosComImpacto = new Set([
+        ...pedidosPeriodo.map(p => p.docId),
+        ...recebimentosPeriodo.map(r => r.pedidoId)
+    ]);
+    const semCusto = pedidos.filter(p => pedidosComImpacto.has(p.docId) && LV.custoPendente(p)).length;
+    const semData = recebimentos.filter(r => r.dataDesconhecida).length;
+    const filtroAtivo = Boolean(document.getElementById("filtroMes").value || document.getElementById("filtroAno").value);
+    document.getElementById("avisosFinanceiros").innerText = [
+        semCusto ? semCusto + " pedido(s) com custo a informar: não entram no cálculo do lucro." : "",
+        semData ? semData + " quitação(ões) antiga(s) sem data comprovada: "
+            + (filtroAtivo ? "não aparecem no período filtrado." : "incluídas no total geral.") : ""
+    ].filter(Boolean).join(" ");
 
     const totalDespesas = despesasNoPeriodo()
         .reduce((total, despesa) => total + Number(despesa.valor || 0), 0);
  
-    document.getElementById("totalVendas").innerText = totalVendas.toFixed(2);
-    document.getElementById("totalRecebido").innerText = totalRecebido.toFixed(2);
-    document.getElementById("totalDespesas").innerText = totalDespesas.toFixed(2);
-    document.getElementById("totalPendente").innerText = totalPendente.toFixed(2);
-    document.getElementById("totalLucroPrevisto").innerText = (lucroPrevistoBruto - totalDespesas).toFixed(2);
-    document.getElementById("totalLucroRealizado").innerText = (lucroRealizadoBruto - totalDespesas).toFixed(2);
+    atualizarTituloPeriodoFinanceiro();
+    document.getElementById("totalVendas").innerText = formatarValorFinanceiro(totalVendas);
+    document.getElementById("totalRecebido").innerText = formatarValorFinanceiro(totalRecebido);
+    document.getElementById("totalDespesas").innerText = formatarValorFinanceiro(totalDespesas);
+    document.getElementById("totalPendente").innerText = formatarValorFinanceiro(totalPendente);
+    document.getElementById("totalLucroPrevisto").innerText = formatarValorFinanceiro(lucroPrevistoBruto - totalDespesas);
+    document.getElementById("totalLucroRealizado").innerText = formatarValorFinanceiro(lucroRealizadoBruto - totalDespesas - totalTaxasReais);
     document.getElementById("qtdPedidos").innerText = qtdPedidos;
 }
 
@@ -287,9 +776,9 @@ function togglePendentes() {
     renderPendentes();
 }
 
-function abrirCliente(nome) {
+function abrirCliente(nome, telefone = "") {
     if (!nome) return;
-    window.location.href = `cliente.html?nome=${encodeURIComponent(nome)}`;
+    window.location.href = `cliente.html?nome=${encodeURIComponent(nome)}&telefone=${encodeURIComponent(telefone)}`;
 }
 
 function abrirClientePendente(indice) {
@@ -299,7 +788,7 @@ function abrirClientePendente(indice) {
         window.location.href = `cliente.html?id=${encodeURIComponent(cliente.clienteId)}&nome=${encodeURIComponent(cliente.cliente)}`;
         return;
     }
-    abrirCliente(cliente.cliente);
+    abrirCliente(cliente.cliente, cliente.telefone);
 }
 
 function renderPendentes() {
@@ -321,7 +810,7 @@ function renderPendentes() {
 
     const porCliente = {};
     pendentes.forEach(p => {
-        const chave = p.clienteId || (p.cliente || "Cliente sem nome").trim();
+        const chave = chaveAgrupamentoFinanceiro(p);
         if (!porCliente[chave]) {
             porCliente[chave] = {
                 cliente: (p.cliente || "Cliente sem nome").trim(),
@@ -386,9 +875,9 @@ function renderResumoCliente() {
 
     const grupos = {};
     pedidosNoPeriodo().filter(p => normalizarNome(p.cliente).includes(termo)).forEach(p => {
-        const chave = p.clienteId || normalizarNome(p.cliente);
+        const chave = chaveAgrupamentoFinanceiro(p);
         if (!grupos[chave]) grupos[chave] = {
-            nome: p.cliente || "Cliente sem nome", clienteId: p.clienteId || "", pedidos: 0, pago: 0, pendente: 0
+            nome: p.cliente || "Cliente sem nome", telefone: p.telefone || "", clienteId: p.clienteId || "", pedidos: 0, pago: 0, pendente: 0
         };
         grupos[chave].pedidos++;
         grupos[chave].pago += valorPagoPedido(p);
@@ -424,7 +913,7 @@ function abrirClienteResumo(indice) {
         window.location.href = `cliente.html?id=${encodeURIComponent(cliente.clienteId)}&nome=${encodeURIComponent(cliente.nome)}`;
         return;
     }
-    abrirCliente(cliente.nome);
+    abrirCliente(cliente.nome, cliente.telefone);
 }
 
 async function salvarDespesa() {
@@ -481,6 +970,7 @@ function renderDespesas() {
 }
  
 function gerarGrafico() {
+    document.getElementById('avisoGrafico').hidden = true;
     const mesesNomes = {
         "01": "Jan", "02": "Fev", "03": "Mar", "04": "Abr",
         "05": "Mai", "06": "Jun", "07": "Jul", "08": "Ago",
@@ -492,20 +982,36 @@ function gerarGrafico() {
     pedidosNoPeriodo().forEach(p => {
         const chave = getMes(p);
         if (!chave) return;
-        if (!dados[chave]) dados[chave] = { vendas: 0, lucro: 0, despesas: 0 };
+        if (!dados[chave]) dados[chave] = { vendas: 0, recebido: 0, lucro: 0, despesas: 0 };
         dados[chave].vendas += Number(p.total || 0);
-        dados[chave].lucro += Number(p.lucro || 0);
+        dados[chave].lucro += LV.lucro(p);
+    });
+
+    itensNoPeriodo(LV.recebimentos(pedidos, pagamentos)).forEach(recebimento => {
+        const chave = getMes(recebimento);
+        if (!chave) return;
+        if (!dados[chave]) dados[chave] = { vendas: 0, recebido: 0, lucro: 0, despesas: 0 };
+        dados[chave].recebido += Number(recebimento.valor || 0);
     });
 
     despesasNoPeriodo().forEach(despesa => {
         const chave = getMes(despesa);
         if (!chave) return;
-        if (!dados[chave]) dados[chave] = { vendas: 0, lucro: 0, despesas: 0 };
+        if (!dados[chave]) dados[chave] = { vendas: 0, recebido: 0, lucro: 0, despesas: 0 };
         dados[chave].despesas += Number(despesa.valor || 0);
     });
  
     // Ordena os meses cronologicamente
     const chaves = Object.keys(dados).sort();
+
+    const canvas = document.getElementById("grafico");
+    const vazio = document.getElementById("graficoSemDados");
+    canvas.hidden = chaves.length === 0;
+    vazio.hidden = chaves.length !== 0;
+    if (!chaves.length) {
+        if (graficoInstance) { graficoInstance.destroy(); graficoInstance = null; }
+        return;
+    }
  
     const labels = chaves.map(c => {
         const [ano, mes] = c.split("-");
@@ -513,13 +1019,14 @@ function gerarGrafico() {
     });
  
     const vendas = chaves.map(c => dados[c].vendas);
+    const recebidos = chaves.map(c => dados[c].recebido);
     const lucros = chaves.map(c => dados[c].lucro);
     const valoresDespesas = chaves.map(c => dados[c].despesas);
  
     // Destrói gráfico anterior se existir
     if (graficoInstance) graficoInstance.destroy();
  
-    const ctx = document.getElementById("grafico").getContext("2d");
+    const ctx = canvas.getContext("2d");
     graficoInstance = new Chart(ctx, {
         type: "bar",
         data: {
@@ -529,6 +1036,12 @@ function gerarGrafico() {
                     label: "Vendas (R$)",
                     data: vendas,
                     backgroundColor: "#0f243e",
+                    borderRadius: 6
+                },
+                {
+                    label: "Recebido (R$)",
+                    data: recebidos,
+                    backgroundColor: "#1f9d55",
                     borderRadius: 6
                 },
                 {

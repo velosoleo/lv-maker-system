@@ -1,0 +1,12 @@
+<!doctype html><html lang="pt-br"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"><style>#configPromocao > label { display:block; margin-top:12px; } #configPromocao input[type="checkbox"] { width:18px; height:18px; padding:0; margin:0 7px 0 0; vertical-align:middle; } #promocaoProdutos label { margin:10px 0; }</style><body><h1>Prévia local — promoção</h1><section class="card" id="configPromocao">
+    <h3>Promoção automática da loja</h3>
+    <p>O banner é uma imagem: configure aqui a regra que será aplicada ao pagamento online.</p>
+    <label><input id="promocaoAtiva" type="checkbox"> Ativar promoção</label>
+    <label for="promocaoValor">Desconto por compra (R$)</label><input id="promocaoValor" type="number" min="0.01" step="0.01" value="10">
+    <label for="promocaoMinimo">Aplicar em compras acima de (R$)</label><input id="promocaoMinimo" type="number" min="0.01" step="0.01" value="50">
+    <label for="promocaoEscopo">Produtos participantes</label><select id="promocaoEscopo" onchange="renderProdutosPromocao()"><option value="todos">Todos os produtos</option><option value="selecionados">Somente produtos selecionados</option></select>
+    <div id="promocaoProdutos" hidden style="max-height:260px;overflow:auto"></div>
+    <p>O mínimo considera apenas os produtos participantes. O frete não recebe desconto. A promoção é aplicada uma vez por compra, somente acima do valor informado; R$ 50,00 exatos não recebem desconto quando o mínimo é R$ 50,00.</p>
+    <button type="button" id="salvarPromocao" onclick="salvarPromocao()">Salvar promoção</button>
+    <p id="promocaoStatus" role="status" aria-live="polite"></p>
+</section><script src="/app.js"></script><script>const auth={currentUser:{uid:'teste'}};const produtos=[{docId:'a',nome:'Jogo de Equilíbrio',ativo:true},{docId:'b',nome:'Tubarão articulado',ativo:true}];let registro={usuario:'teste'};const ref={get:async()=>({exists:true,data:()=>registro})};const db={collection:()=>({doc:()=>ref}),runTransaction:async fn=>fn({get:async()=>({exists:true,data:()=>registro}),update:(r,d)=>{registro={...registro,...d}}})};</script><script src="/promocao-admin.js"></script><script>carregarPromocao();</script></body></html>

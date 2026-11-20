@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LV Maker — Preparar envio</title>
+<link rel="stylesheet" href="style.css"><link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f243e"><script defer src="pwa.js?v=66"></script>
+<style>[hidden]{display:none!important}input,textarea,select{max-width:100%;box-sizing:border-box}#acoesEnvio{display:flex;gap:10px;flex-wrap:wrap}#acoesEnvio button{flex:1;min-width:180px}#resumoEnvio,#situacaoEnvio{white-space:pre-line;overflow-wrap:anywhere}fieldset{border:0;padding:0;margin:0}label{display:block;margin-top:12px}</style>
+</head>
+<body>
+<p id="acesso" role="status">Verificando acesso...</p>
+<main id="telaEnvio" hidden>
+<h1>Preparar envio</h1><nav><a href="index.html">Voltar aos pedidos</a><a href="entregas.html">Configurar entregas</a></nav>
+<section class="card"><h2>Pedido e destino</h2><p id="resumoEnvio"></p></section>
+<section class="card"><h2>Embalagem pronta e documentos</h2>
+<p>Prepare o produto em uma única embalagem. Informe as medidas externas, o peso total e o documento que acompanhará o envio.</p>
+<fieldset id="dadosEnvio">
+<label for="documentoFiscal">Documento do envio</label><select id="documentoFiscal" onchange="trocarDocumentoEnvio()"><option value="nota">Nota fiscal</option><option value="declaracao">Declaração de conteúdo eletrônica — envio dispensado de nota</option></select>
+<div id="dadosDeclaracao" hidden><p>Os produtos, quantidades e valores serão preenchidos a partir do pedido. Confira a dispensa de nota fiscal aplicável ao envio; o valor vendido, o uso de CPF e o canal de venda não determinam essa condição.</p><label><input id="dispensaNota" type="checkbox" style="width:auto"> Confirmo que este envio está dispensado de nota fiscal e pode utilizar DC-e.</label></div>
+<label for="documentoDestino">CPF ou CNPJ do destinatário</label><input id="documentoDestino" maxlength="18" autocomplete="off">
+<div id="dadosNota"><label for="chaveNota">Chave de acesso da nota fiscal (44 dígitos)</label><input id="chaveNota" inputmode="numeric" maxlength="44" autocomplete="off"></div>
+<label for="pesoEnvio">Peso total (kg)</label><input id="pesoEnvio" type="number" min="0.001" step="0.001">
+<label for="larguraEnvio">Largura (cm)</label><input id="larguraEnvio" type="number" min="0.1" step="0.1">
+<label for="alturaEnvio">Altura (cm)</label><input id="alturaEnvio" type="number" min="0.1" step="0.1">
+<label for="comprimentoEnvio">Comprimento (cm)</label><input id="comprimentoEnvio" type="number" min="0.1" step="0.1">
+</fieldset>
+</section>
+<section class="card"><h2>Etiqueta e postagem</h2>
+<p id="situacaoEnvio" role="status" aria-live="polite"></p>
+<label id="confirmacaoCusto" hidden><input id="aceitarCusto" type="checkbox" style="width:auto"> <span id="textoCusto"></span></label>
+<div id="acoesEnvio">
+<button id="preparar" onclick="acaoEnvio('preparar')">Conferir custo da etiqueta</button>
+<button id="editarPreparo" hidden onclick="mostrarEnvio({existe:false})">Alterar embalagem ou documento</button>
+<button id="consultar" onclick="acaoEnvio('consultar')">Atualizar situação</button>
+<button id="contratar" hidden onclick="acaoEnvio('contratar')">Comprar e gerar etiqueta</button>
+<button id="imprimir" hidden onclick="acaoEnvio('imprimir')">Abrir etiqueta para impressão</button>
+<button id="imprimirDeclaracao" hidden onclick="acaoEnvio('declaracao')">Abrir declaração eletrônica (PDF)</button>
+</div>
+<p><a id="linkEtiqueta" hidden target="_blank" rel="noopener noreferrer">Abrir etiqueta no Melhor Envio</a></p>
+<p>A etiqueta usa o saldo da sua carteira do Melhor Envio. O pagamento do cliente pela InfinitePay não abastece essa carteira. Para abrir a impressão privada, entre na sua conta do Melhor Envio neste navegador.</p>
+<div id="recuperacaoEnvio" hidden><p>A resposta de criação ficou incerta. Confira o carrinho do Melhor Envio. Se encontrar este envio, copie o identificador dele abaixo para recuperar a mesma etiqueta. Não crie outra.</p>
+<label for="identificadorEnvio">Identificador do envio no Melhor Envio</label><input id="identificadorEnvio" maxlength="100"><button onclick="acaoEnvio('vincular')">Vincular o envio encontrado</button></div>
+</section>
+</main>
+<script src="app.js?v=83"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
+<script src="integracoes.js?v=66"></script>
+<script>
+firebase.initializeApp({apiKey:'AIzaSyASqz8XoAhyD6w-klOr4HXlj_4URkQlBU8',authDomain:'lv-maker.firebaseapp.com',projectId:'lv-maker',storageBucket:'lv-maker.firebasestorage.app',messagingSenderId:'216355482221',appId:'1:216355482221:web:5c3806b990538fa7dc6d64'});
+firebase.appCheck().activate(new firebase.appCheck.ReCaptchaEnterpriseProvider('6LcX5IItAAAAAMMojs5eGD6mDUWpnFozv-P_xmC_'),true);
+const el = id => document.getElementById(id);
+const dinheiroEnvio = n => (n / 100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const checkoutId = new URLSearchParams(location.search).get('pedido');
+let envioAtual = null, pedidoEnvio = null, ocupadoEnvio = false;
+function trocarDocumentoEnvio() {
+    const declaracao = el('documentoFiscal').value === 'declaracao';
+    el('dadosDeclaracao').hidden = !declaracao; el('dadosNota').hidden = declaracao;
+    el('dispensaNota').checked = false;
+}
+function mostrarEnvio(e) {
+    envioAtual = e;
+    el('situacaoEnvio').textContent = e.existe ? [
+        e.ambiente === 'sandbox' ? 'AMBIENTE DE TESTES — não despache uma venda real com esta etiqueta.' : '',
+        'Situação: ' + (e.gerado ? 'Etiqueta gerada' : e.geracaoSolicitada ? 'Aguardando geração no Melhor Envio. Aguarde um minuto e use Verificar e continuar geração. Se gerou pelo aplicativo, clique em Atualizar situação.' : e.pago ? 'Pagamento confirmado — continue a geração da etiqueta' : e.status === 'recusado' ? 'Dados recusados — corrija e confira o custo novamente' : e.status),
+        e.statusTransportadora ? 'Transportadora: ' + e.statusTransportadora : '',
+        'Custo da etiqueta: ' + dinheiroEnvio(e.custoCentavos),
+        'Frete recebido do cliente: ' + dinheiroEnvio(pedidoEnvio.entrega.precoCentavos),
+        'Ponto de postagem: ' + e.ponto,
+        e.diagnostico || '',
+        e.orderId ? 'Identificador: ' + e.orderId : '', e.rastreio ? 'Rastreio: ' + e.rastreio : ''
+    ].filter(Boolean).join('\n') : 'Confira a embalagem e consulte o custo antes de comprar a etiqueta.';
+    el('preparar').hidden = e.existe;
+    el('editarPreparo').hidden = !e.existe || !['preparado','recusado'].includes(e.status);
+    el('dadosEnvio').disabled = e.existe;
+    el('contratar').hidden = !e.existe || e.gerado || (!e.orderId && e.status !== 'preparado') || ['canceled','expired'].includes(e.statusTransportadora);
+    el('contratar').textContent = e.pago ? e.geracaoSolicitada ? 'Verificar e continuar geração' : 'Continuar geração da etiqueta' : 'Comprar etiqueta por ' + dinheiroEnvio(e.custoCentavos || 0);
+    el('confirmacaoCusto').hidden = el('contratar').hidden || e.pago;
+    el('aceitarCusto').checked = false;
+    el('textoCusto').textContent = 'Confirmo o uso de até ' + dinheiroEnvio(e.custoCentavos || 0) + ' do saldo do Melhor Envio para este envio.';
+    el('imprimir').hidden = !e.gerado || ['canceled','expired'].includes(e.statusTransportadora);
+    el('imprimirDeclaracao').hidden = el('imprimir').hidden || e.documentoFiscal !== 'declaracao';
+    if (e.documentoFiscal) { el('documentoFiscal').value = e.documentoFiscal; trocarDocumentoEnvio(); el('dispensaNota').checked = e.documentoFiscal === 'declaracao'; }
+    el('recuperacaoEnvio').hidden = !(e.status === 'incerto' && !e.orderId);
+}
+async function chamarEnvio(nome,dados={}) {
+    return (await LVIntegracoes.chamar(nome, {checkoutId,...dados})).data;
+}
+async function acaoEnvio(acao) {
+    if (ocupadoEnvio || !pedidoEnvio) return;
+    if (acao === 'contratar' && !envioAtual.pago && !el('aceitarCusto').checked) { el('situacaoEnvio').textContent += '\nMarque a confirmação do custo antes de contratar.'; return; }
+    ocupadoEnvio = true; document.querySelectorAll('button').forEach(b => b.disabled = true);
+    el('linkEtiqueta').hidden = true;
+    try {
+        if (acao === 'preparar') {
+            const documentoFiscal = el('documentoFiscal').value;
+            const e = await chamarEnvio('prepararEnvio',{documentoFiscal,dispensaNotaConfirmada:el('dispensaNota').checked,documentoDestinatario:el('documentoDestino').value.trim(),chaveNota:documentoFiscal === 'nota' ? el('chaveNota').value.trim() : '',
+                volume:{weight:Number(el('pesoEnvio').value),width:Number(el('larguraEnvio').value),height:Number(el('alturaEnvio').value),length:Number(el('comprimentoEnvio').value)}});
+            mostrarEnvio({...e,documentoFiscal,existe:true,status:'preparado'});
+        } else if (acao === 'imprimir' || acao === 'declaracao') {
+            const e = await chamarEnvio(acao === 'declaracao' ? 'imprimirDeclaracao' : 'imprimirEnvio'); const u = new URL(e.url);
+            const hosts = ['melhorenvio.com.br','sandbox.melhorenvio.com.br',...(acao === 'declaracao' ? ['me-0047-prod.s3.amazonaws.com'] : [])];
+            if (u.protocol !== 'https:' || !hosts.includes(u.hostname) || u.username || u.password) throw new Error('Link de impressão inválido.');
+            el('linkEtiqueta').href = u.href; el('linkEtiqueta').hidden = false;
+            el('linkEtiqueta').textContent = acao === 'declaracao' ? 'Declaração pronta — toque para abrir e imprimir junto da etiqueta' : 'Etiqueta pronta — toque para abrir e imprimir';
+        } else {
+            if (acao === 'contratar') await chamarEnvio('contratarEnvio',{revisao:envioAtual.revisao,limiteCentavos:envioAtual.custoCentavos,confirmarCompra:true,somenteGerar:envioAtual.pago === true});
+            if (acao === 'vincular') await chamarEnvio('vincularEnvio',{orderId:el('identificadorEnvio').value.trim()});
+            mostrarEnvio(await chamarEnvio('consultarEnvio'));
+        }
+    } catch(e) {
+        try { mostrarEnvio(await chamarEnvio('consultarEnvio')); } catch(_) {}
+        const mensagem = e.message || 'Não foi possível confirmar a operação. Consulte antes de repetir.';
+        if (!el('situacaoEnvio').textContent.includes(mensagem)) el('situacaoEnvio').textContent += '\n' + mensagem;
+    } finally { ocupadoEnvio = false; document.querySelectorAll('button').forEach(b => b.disabled = false); }
+}
+firebase.auth().onAuthStateChanged(async user => {
+    if (!user) {location.href='index.html';return;}
+    try {
+        if (!/^[a-zA-Z0-9_-]{1,100}$/.test(checkoutId || '')) throw new Error('Abra o envio pelo pedido pago na lista de pedidos.');
+        const db = firebase.firestore();
+        if (!(await db.doc('admins/'+user.uid).get()).exists) throw new Error('Acesso de administrador necessário.');
+        const doc = await db.doc('checkouts/'+checkoutId).get(); const p = doc.data();
+        if (!p || p.usuario !== user.uid || p.status !== 'pago' || p.entrega?.tipo !== 'transportadora') throw new Error('Pedido pago com transportadora não encontrado.');
+        pedidoEnvio=p; const c=p.cliente, e=c.endereco;
+        el('resumoEnvio').textContent = c.nome+' — '+c.telefone+'\n'+[e.rua,e.numero,e.complemento,e.bairro,'CEP '+e.cep].filter(Boolean).join(', ')+'\n'+p.itens.map(i=>i.qtd+' × '+i.nome).join('\n')+'\nServiço: '+p.entrega.nome;
+        el('documentoDestino').value=c.documento || '';
+        el('acesso').hidden=true; el('telaEnvio').hidden=false;
+        await acaoEnvio('consultar');
+    } catch(e) {el('acesso').textContent=e.message || 'Não foi possível carregar o pedido.';}
+});
+</script>
+</body>
+</html>

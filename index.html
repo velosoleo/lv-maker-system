@@ -7,6 +7,9 @@
 <link rel="stylesheet" href="style.css">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f243e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script defer src="pwa.js?v=66"></script>
 </head>
  
 <body>
@@ -24,11 +27,19 @@
  
 <nav>
     <a href="index.html" class="ativo">📋 Pedidos</a>
-    <a href="index.html?aba=producao">⚙️ Produção & Entregas</a>
+    <a href="index.html?aba=producao">⚙️ Produção & Entregas <span id="badgePedidosNovos" class="badge-pagamento badge-pendente" hidden>0</span></a>
     <a href="orcamentos.html">Orçamentos</a>
     <a href="financeiro.html">📊 Financeiro</a>
     <a href="produtos.html">🛍️ Produtos</a>
+    <a href="entregas.html">🚚 Entregas</a>
 </nav>
+
+<div id="avisoNovoPedido" class="aviso-novo-pedido" role="status" aria-live="assertive" hidden>
+    <strong>Novo pedido recebido!</strong>
+    <span id="textoNovoPedido"></span>
+    <button type="button" onclick="abrirPedidosRecebidos()">Ver pedido</button>
+    <button type="button" class="aviso-fechar" onclick="document.getElementById('avisoNovoPedido').hidden=true" aria-label="Fechar aviso">✕</button>
+</div>
  
 <div id="visaoOperacao">
 <div class="card">
@@ -39,6 +50,14 @@
     <input id="dataPagamento" type="date">
     <label>Data Estimada de Entrega <small style="color:#888;">(opcional)</small></label>
     <input id="dataEntrega" type="date">
+    <label>Dia planejado para produção <small style="color:#888;">(opcional)</small></label>
+    <input id="dataProducao" type="date">
+    <label>Tempo previsto de impressão em horas <small style="color:#888;">(opcional)</small></label>
+    <input id="tempoImpressaoPrevisto" type="number" min="0" step="0.1" placeholder="Ex.: 4,5">
+    <label>Impressora <small style="color:#888;">(opcional)</small></label>
+    <input id="impressoraProducao" placeholder="Ex.: BambuLab A1">
+    <label>Prioridade da produção</label>
+    <select id="prioridadeProducao"><option value="normal">Normal</option><option value="alta">Alta</option><option value="urgente">Urgente</option></select>
     <input id="cliente" placeholder="Cliente" oninput="buscarTelefoneCliente()">
     <input id="telefone" placeholder="Telefone com DDD (opcional)">
     <input id="produto" placeholder="Produto">
@@ -58,13 +77,58 @@
     <button onclick="logout()">Sair</button>
 </div>
  
+<div class="card" id="cardNotificacoesPush">
+    <h3>🔔 Avisos de novos pedidos</h3>
+    <div class="configuracao-push">
+        <div>
+            <strong>Notificações neste aparelho</strong>
+            <p id="statusNotificacoesPush">Ative para receber novos pedidos mesmo com o aplicativo fechado.</p>
+        </div>
+        <button id="btnAtivarPush" type="button" onclick="ativarNotificacoesPush()">Ativar notificações</button>
+        <button id="btnDesativarPush" type="button" class="botao-secundario" onclick="desativarNotificacoesPush()" hidden>Desativar</button>
+    </div>
+</div>
+
 <div class="card" id="cardPedidosCatalogo" style="display:none;">
-    <h3>Pedidos Recebidos do Catálogo</h3>
+    <h3>🔔 Pedidos recebidos da loja virtual <span id="contadorPedidosCatalogo" class="badge-pagamento badge-pendente">0</span></h3>
+    <label class="preferencia-som"><input id="somPedidosNovos" type="checkbox" onchange="salvarPreferenciaSomPedidos()"> Tocar som quando chegar pedido novo</label>
     <div id="listaPedidosCatalogo"></div>
 </div>
 
 <div class="card">
     <h3>Produção e Entregas</h3>
+    <section class="painel-diario-producao" aria-labelledby="tituloPainelDiario">
+        <div class="painel-diario-cabecalho">
+            <div><h4 id="tituloPainelDiario">Hoje na produção</h4><p id="dataPainelProducao"></p></div>
+            <span>Considera todos os pedidos ativos</span>
+        </div>
+        <div class="dashboard" id="dashboardProducao">
+            <div class="box painel-total"><strong>Ativos</strong><p id="dashAtivos">0</p></div>
+            <div class="box painel-aguardando"><strong>Ainda não iniciados</strong><p id="dashAguardando">0</p></div>
+            <div class="box painel-imprimindo"><strong>Imprimindo agora</strong><p id="dashImprimindo">0</p></div>
+            <div class="box painel-alerta"><strong>Imprimindo há mais de 24h</strong><p id="dashImprimindoLongo">0</p></div>
+            <div class="box painel-pronto"><strong>Prontos aguardando entrega</strong><p id="dashPronto">0</p></div>
+            <div class="box painel-urgente"><strong>Entregas atrasadas</strong><p id="dashAtrasados">0</p></div>
+            <div class="box painel-proximo"><strong>Entregas nos próximos 2 dias</strong><p id="dashProximos">0</p></div>
+        </div>
+        <div class="atencoes-producao">
+            <h4>Atenções de hoje</h4>
+            <div id="listaAtencoesProducao" aria-live="polite"></div>
+        </div>
+    </section>
+    <section class="agenda-producao" aria-labelledby="tituloAgendaProducao">
+        <div class="agenda-producao-cabecalho">
+            <div><h4 id="tituloAgendaProducao">Agenda de produção</h4><p>Organize o que será produzido em cada dia.</p></div>
+            <input id="dataAgendaProducao" type="date" onchange="renderAgendaProducao()" aria-label="Dia da agenda de produção">
+        </div>
+        <div class="agenda-producao-resumo">
+            <div><strong id="agendaQuantidade">0</strong><span>pedidos planejados</span></div>
+            <div><strong id="agendaHoras">0h</strong><span>impressão prevista</span></div>
+            <div><strong id="agendaEntregas">0</strong><span>entregas do dia</span></div>
+        </div>
+        <div id="listaAgendaProducao" class="lista-agenda-producao" aria-live="polite"></div>
+        <div id="proximasEntregasAgenda" class="proximas-entregas-agenda"></div>
+    </section>
     <input id="buscaClienteOperacao" placeholder="Buscar cliente..." oninput="render()">
     <label>Filtrar por mês:</label>
     <select id="filtroMesOperacao" onchange="render()">
@@ -82,77 +146,43 @@
         <option value="11">Novembro</option>
         <option value="12">Dezembro</option>
     </select>
-    <button onclick="gerarReciboSelecionado()">Gerar Recibo Selecionado</button>
-    <button onclick="enviarCobrancaSelecionados()">📌 Enviar Cobrança Selecionados</button>
-    <button onclick="exportarCSV()">Exportar CSV</button>
-
-    <div class="dashboard" id="dashboardProducao" style="margin:16px 0;">
-        <div class="box">
-            <strong>Aguardando</strong>
-            <p id="dashAguardando">0</p>
-        </div>
-        <div class="box">
-            <strong>Imprimindo</strong>
-            <p id="dashImprimindo">0</p>
-        </div>
-        <div class="box">
-            <strong>Pronto</strong>
-            <p id="dashPronto">0</p>
-        </div>
-        <div class="box">
-            <strong>Entregue</strong>
-            <p id="dashEntregue">0</p>
-        </div>
-        <div class="box" style="border-left:4px solid #e74c3c;">
-            <strong>Atrasados</strong>
-            <p id="dashAtrasados">0</p>
-        </div>
-        <div class="box" style="border-left:4px solid #f39c12;">
-            <strong>Pag. Pendente</strong>
-            <p id="dashPendente">0</p>
-        </div>
-    </div>
- 
-    <table>
-        <thead>
-            <tr>
-                <th>✔</th>
-                <th>Data Pedido</th>
-                <th>Data Pagamento</th>
-                <th>Entrega</th>
-                <th>Cliente</th>
-                <th>Produto</th>
-                <th>Qtd</th>
-                <th>Status</th>
-                <th>Pago?</th>
-                <th>Ação</th>
-            </tr>
-        </thead>
-        <tbody id="tabelaOperacao"></tbody>
-    </table>
-    <h3>Total do mês: R$ <span id="totalMesOperacao">0</span></h3>
-</div>
- 
-<div class="card">
-    <h3>🧾 Recibo</h3>
-    <div id="recibo"></div>
-    <button onclick="enviarWhatsApp()">Enviar no WhatsApp</button>
-</div>
-
-<div class="card" id="cardPagamento" style="display:none;">
-    <h3>💰 Registrar pagamento</h3>
-    <p id="resumoPagamento"></p>
-    <input id="pagamentoPedidoId" type="hidden">
-    <label>Data do recebimento</label>
-    <input id="dataRecebimento" type="date">
-    <input id="valorRecebimento" type="number" min="0.01" step="0.01" placeholder="Valor recebido">
-    <select id="formaRecebimento">
-        <option>Pix</option><option>Dinheiro</option><option>Cartão</option><option>Outro</option>
+    <select id="msgSelecionados" aria-label="Mensagem para os pedidos selecionados">
+        <option value="confirmar">Confirmar pedidos</option>
+        <option value="imprimindo">Começou a impressão</option>
+        <option value="pronto">Pedidos prontos</option>
+        <option value="retirada">Prontos para retirada</option>
     </select>
-    <button id="btnRegistrarPagamento" onclick="registrarPagamento()">Salvar pagamento</button>
-    <button onclick="fecharRegistroPagamento()" style="background:#888;">Cancelar</button>
-    <div id="historicoPagamento"></div>
+    <button onclick="enviarMensagemSelecionados()">📲 WhatsApp dos selecionados</button>
+    <button onclick="exportarCSV()">Exportar CSV</button>
+    <button onclick="exportarBackupSeguranca(this)">Exportar backup</button>
+
+    <div id="filaProducao" class="fila-producao" aria-live="polite"></div>
+    <h3>Total do mês: R$ <span id="totalMesOperacao">0</span></h3>
+    <details class="pedidos-entregues-revisao">
+        <summary>Revisar pedidos marcados como entregues</summary>
+        <p>Use esta área somente para corrigir um pedido que foi marcado como entregue por engano.</p>
+        <div class="filtros-entregues">
+            <input id="buscaEntregues" type="search" placeholder="Nome do cliente..." oninput="filtrarPedidosEntregues()">
+            <select id="mesEntregues" onchange="filtrarPedidosEntregues()" aria-label="Mês do pedido entregue">
+                <option value="">Todos os meses</option>
+                <option value="01">Janeiro</option><option value="02">Fevereiro</option>
+                <option value="03">Março</option><option value="04">Abril</option>
+                <option value="05">Maio</option><option value="06">Junho</option>
+                <option value="07">Julho</option><option value="08">Agosto</option>
+                <option value="09">Setembro</option><option value="10">Outubro</option>
+                <option value="11">Novembro</option><option value="12">Dezembro</option>
+            </select>
+        </div>
+        <div id="filaEntregues"></div>
+        <p id="nenhumEntregueEncontrado" style="color:#777;display:none;">Nenhum pedido entregue encontrado para estes filtros.</p>
+    </details>
+    <details class="pedidos-entregues-revisao">
+        <summary>Lixeira de pedidos</summary>
+        <p>Pedidos excluídos podem ser restaurados sem perder pagamentos ou histórico.</p>
+        <div id="listaLixeiraPedidos"></div>
+    </details>
 </div>
+ 
 </div>
 
 <div id="visaoPedidos">
@@ -190,7 +220,11 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
  
+<script src="app.js?v=83"></script>
+<script src="financeiro-regras.js?v=83"></script>
+<script src="estado-area.js?v=66"></script>
 <script>
 const firebaseConfig = {
     apiKey: "AIzaSyASqz8XoAhyD6w-klOr4HXlj_4URkQlBU8",
@@ -210,12 +244,136 @@ const db = firebase.firestore();
 const auth = firebase.auth();
  
 let pedidos = [];
+let pedidosExcluidos = [];
 let pagamentos = [];
+let parcelamentosClientes = [];
 let pedidosCatalogo = [];
+let pararPedidosCatalogo = null;
+let temporizadorAvisoPedido = null;
+let pararAvisosCheckout = null;
+let avisosCheckout = [];
+
+function preferenciaSomPedidos() {
+    try { return localStorage.getItem('lv_som_pedidos') === 'true'; } catch (_) { return false; }
+}
+
+function salvarPreferenciaSomPedidos() {
+    const ativo = document.getElementById('somPedidosNovos').checked;
+    try { localStorage.setItem('lv_som_pedidos', String(ativo)); } catch (_) {}
+    if (ativo) tocarSomPedido();
+}
+
+function tocarSomPedido() {
+    if (!preferenciaSomPedidos()) return;
+    try {
+        const AudioContexto = window.AudioContext || window.webkitAudioContext;
+        const audio = new AudioContexto();
+        const oscilador = audio.createOscillator();
+        const ganho = audio.createGain();
+        oscilador.frequency.value = 880;
+        ganho.gain.setValueAtTime(0.08, audio.currentTime);
+        ganho.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.35);
+        oscilador.connect(ganho); ganho.connect(audio.destination);
+        oscilador.start(); oscilador.stop(audio.currentTime + 0.35);
+        oscilador.onended = () => audio.close();
+    } catch (_) {}
+}
+
+function atualizarAvisoPedidosCatalogo() {
+    const quantidade = pedidosCatalogo.length;
+    const badge = document.getElementById('badgePedidosNovos');
+    badge.textContent = quantidade;
+    badge.hidden = quantidade === 0;
+    renderPedidosCatalogo();
+}
+
+function mostrarAvisoNovoPedido(pedidosNovos) {
+    if (!pedidosNovos.length) return;
+    const aviso = document.getElementById('avisoNovoPedido');
+    const nomes = pedidosNovos.map(p => p.cliente || 'Cliente').slice(0, 2).join(', ');
+    document.getElementById('textoNovoPedido').textContent = pedidosNovos.length === 1
+        ? `${nomes} enviou um pedido pela loja.`
+        : `${pedidosNovos.length} pedidos novos recebidos pela loja.`;
+    aviso.hidden = false;
+    tocarSomPedido();
+    clearTimeout(temporizadorAvisoPedido);
+    temporizadorAvisoPedido = setTimeout(() => { aviso.hidden = true; }, 12000);
+}
+
+function abrirPedidosRecebidos() {
+    if (!emProducao) { window.location.href = 'index.html?aba=producao'; return; }
+    document.getElementById('avisoNovoPedido').hidden = true;
+    document.getElementById('cardPedidosCatalogo').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function acompanharPedidosCatalogo(user) {
+    if (pararPedidosCatalogo) pararPedidosCatalogo();
+    pararPedidosCatalogo = null;
+    pedidosCatalogo = [];
+    atualizarAvisoPedidosCatalogo();
+    if (!user) return;
+    let primeiraLeitura = true;
+    pararPedidosCatalogo = db.collection('pedidosCatalogo').where('status', '==', 'novo').onSnapshot(snapshot => {
+        const novos = primeiraLeitura ? [] : snapshot.docChanges()
+            .filter(change => change.type === 'added')
+            .map(change => ({ docId: change.doc.id, ...change.doc.data() }));
+        pedidosCatalogo = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
+        pedidosCatalogo.sort((a, b) => {
+            const dataA = a.criadoEm?.toDate ? a.criadoEm.toDate() : new Date(a.criadoEm || 0);
+            const dataB = b.criadoEm?.toDate ? b.criadoEm.toDate() : new Date(b.criadoEm || 0);
+            return dataB - dataA;
+        });
+        atualizarAvisoPedidosCatalogo();
+        if (novos.length) mostrarAvisoNovoPedido(novos);
+        primeiraLeitura = false;
+    }, erro => {
+        console.error('Não foi possível acompanhar pedidos da loja:', erro);
+        primeiraLeitura = false;
+    });
+}
+function acompanharPagamentosOnline(user) {
+    if (pararAvisosCheckout) pararAvisosCheckout();
+    pararAvisosCheckout = null;
+    document.getElementById('avisosPagamentoOnline')?.remove();
+    if (!user) return;
+    const aviso = document.createElement('div');
+    aviso.id = 'avisosPagamentoOnline'; aviso.className = 'card'; aviso.hidden = true;
+    aviso.setAttribute('role', 'status'); aviso.setAttribute('aria-live', 'polite');
+    document.getElementById('sistema').prepend(aviso);
+    let primeiraLeitura = true;
+    pararAvisosCheckout = db.collection('checkouts').where('usuario', '==', user.uid).onSnapshot(snapshot => {
+        const novos = snapshot.docChanges().filter(change => change.type !== 'removed' && change.doc.data().status === 'pago');
+        const recentes = novos.filter(change => !primeiraLeitura || change.doc.data().pagoEm?.toMillis() > Date.now() - 86400000);
+        avisosCheckout = recentes.map(change => ({ id: change.doc.id, ...change.doc.data() }));
+        primeiraLeitura = false;
+        if (!avisosCheckout.length) return;
+        aviso.replaceChildren();
+        avisosCheckout.forEach(compra => {
+            const p = document.createElement('p');
+            const prontaEntrega = compra.itens?.length && compra.itens.every(i => i.disponibilidade === 'pronta_entrega');
+            p.textContent = `Pagamento confirmado: ${compra.cliente.nome} — R$ ${(compra.totalCentavos / 100).toFixed(2).replace('.', ',')}. ${compra.estoquePendente ? 'Conferir estoque antes de produzir ou despachar.' : prontaEntrega ? 'Pronta entrega: preparar envio ou retirada.' : 'Aguardando produção: prazo de 1 dia. Se houver itens prontos, enviar tudo junto após a produção.'}`;
+            aviso.appendChild(p);
+        });
+        const atualizar = document.createElement('button');
+        atualizar.textContent = 'Atualizar pedidos'; atualizar.onclick = () => carregarPedidos();
+        const fechar = document.createElement('button');
+        fechar.textContent = 'Fechar aviso'; fechar.onclick = () => { aviso.hidden = true; };
+        aviso.append(atualizar, fechar); aviso.hidden = false;
+        carregarPedidos();
+    }, () => { aviso.hidden = true; });
+}
+function detalhesEntregaOnline(p) {
+    if (!p.checkoutId) return '';
+    const e = p.enderecoEntrega;
+    const endereco = e ? `${e.rua}, ${e.numero}${e.complemento ? ' · ' + e.complemento : ''} · ${e.bairro} · CEP ${e.cep}` : '';
+    const linkEnvio = p.entrega?.tipo === 'transportadora' ? `<br><a href="envio.html?pedido=${encodeURIComponent(p.checkoutId)}">Preparar envio / imprimir etiqueta</a>` : '';
+    return `<br><small>${escaparHTML(p.entrega?.nome || '')}${endereco ? '<br>' + escaparHTML(endereco) : ''}<br>Frete incluído: R$ ${Number(p.frete || 0).toFixed(2)}${p.estoquePendente ? '<br><strong>Conferir estoque: pagamento recebido, estoque insuficiente.</strong>' : ''}${p.observacao ? '<br>' + escaparHTML(p.observacao) : ''}${linkEnvio}</small>`;
+}
 let pedidoEditando = null;
 let pedidoAtivo = null;
 let dadosPedidoURLAplicados = false;
 let orcamentoOrigemId = "";
+let reutilizandoOrcamento = false;
 const emProducao = new URLSearchParams(window.location.search).get("aba") === "producao";
 
 document.getElementById("visaoOperacao").style.display = emProducao ? "block" : "none";
@@ -223,10 +381,7 @@ document.getElementById("visaoPedidos").style.display = emProducao ? "none" : "b
 document.querySelectorAll("nav a").forEach(link => link.classList.remove("ativo"));
 document.querySelector(emProducao ? 'nav a[href="index.html?aba=producao"]' : 'nav a[href="index.html"]').classList.add("ativo");
  
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/service-worker.js')
-        .catch(err => console.error('Service Worker error:', err));
-}
+
  
 function escaparHTML(valor) {
     return String(valor ?? "")
@@ -247,40 +402,13 @@ function normalizarTexto(valor) {
         .replace(/^-+|-+$/g, "");
 }
 
-function gerarClienteId(userId, nome) {
-    const slug = normalizarTexto(nome) || "cliente";
-    return `${userId}_${slug}`.slice(0, 120);
+async function salvarCadastroCliente(user, nome, telefone, clienteId = "") {
+    return LV.salvarCliente(db, user, nome, telefone, clienteId);
 }
 
-async function salvarCadastroCliente(user, nome, telefone) {
-    const clienteId = gerarClienteId(user.uid, nome);
-    const ref = db.collection("clientes").doc(clienteId);
-    const agora = new Date();
-    const atual = await ref.get();
-    const dados = {
-        usuario: user.uid,
-        nome,
-        nomeBusca: normalizarTexto(nome),
-        telefone: telefone || "",
-        atualizadoEm: agora
-    };
-
-    if (atual.exists) {
-        await ref.update(dados);
-    } else {
-        await ref.set({
-            ...dados,
-            observacoes: "",
-            criadoEm: agora
-        });
-    }
-
-    return clienteId;
-}
- 
-function abrirFichaCliente(nome) {
+function abrirFichaCliente(nome, telefone = "") {
     if (!nome) return;
-    window.location.href = `cliente.html?nome=${encodeURIComponent(nome)}`;
+    window.location.href = `cliente.html?nome=${encodeURIComponent(nome)}&telefone=${encodeURIComponent(telefone)}`;
 }
  
 function abrirFichaClientePorPedido(id) {
@@ -290,7 +418,7 @@ function abrirFichaClientePorPedido(id) {
         window.location.href = `cliente.html?id=${encodeURIComponent(pedido.clienteId)}&nome=${encodeURIComponent(pedido.cliente || "")}`;
         return;
     }
-    abrirFichaCliente(pedido.cliente);
+    abrirFichaCliente(pedido.cliente, pedido.telefone);
 }
  
 async function login() {
@@ -307,12 +435,14 @@ async function login() {
 function logout() { auth.signOut(); }
  
 auth.onAuthStateChanged(user => {
+    acompanharPagamentosOnline(user);
+    acompanharPedidosCatalogo(user);
     if (user) {
         document.getElementById("loginBox").style.display = "none";
         document.getElementById("sistema").style.display = "block";
         if (emProducao) preencherPedidoDaURL();
         carregarPedidos();
-        if (emProducao) carregarPedidosCatalogo();
+        document.getElementById('somPedidosNovos').checked = preferenciaSomPedidos();
     } else {
         document.getElementById("loginBox").style.display = "block";
         document.getElementById("sistema").style.display = "none";
@@ -330,6 +460,7 @@ function preencherPedidoDaURL() {
     const valor = params.get("valor") || "";
     const custo = params.get("custo") || "";
     const orcamentoId = params.get("orcamentoId") || "";
+    const reutilizarOrcamento = params.get("reutilizarOrcamento") === "1";
  
     if (!cliente && !telefone && !produto && !qtd && !valor && !custo) return;
     document.getElementById("cliente").value = cliente;
@@ -339,6 +470,7 @@ function preencherPedidoDaURL() {
     document.getElementById("valor").value = valor;
     document.getElementById("custo").value = custo;
     orcamentoOrigemId = orcamentoId;
+    reutilizandoOrcamento = reutilizarOrcamento;
     document.getElementById("data").value = new Date().toISOString().slice(0, 10);
     if (clienteId && cliente) {
         document.getElementById("cliente").dataset.clienteId = clienteId;
@@ -360,7 +492,7 @@ async function criarPedidoDoOrcamentoComEstoque(user, dadosPedido) {
         if (!orcamentoDoc.exists || orcamentoDoc.data().usuario !== user.uid) {
             throw new Error("Orçamento de origem não encontrado ou sem permissão.");
         }
-        if (orcamentoDoc.data().convertidoEmPedidoId) {
+        if (orcamentoDoc.data().convertidoEmPedidoId && !reutilizandoOrcamento) {
             throw new Error("Este orçamento já foi convertido em pedido.");
         }
 
@@ -393,6 +525,8 @@ async function criarPedidoDoOrcamentoComEstoque(user, dadosPedido) {
                 throw new Error(`Estoque insuficiente para ${insumo.nome || "insumo"}. Disponível: ${estoqueAtual}, necessário: ${quantidadeConsumida}.`);
             }
             insumo.estoqueAtual = estoqueAtual - quantidadeConsumida;
+            insumo.historicoEstoque = [{ tipo: "saida", data: dadosPedido.data, quantidade: quantidadeConsumida,
+                pedidoId: pedidoRef.id, cliente: dadosPedido.cliente }, ...(insumo.historicoEstoque || [])].slice(0, 50);
         });
 
         const filamentoId = String(orcamentoDoc.data().filamentoId || "");
@@ -406,16 +540,23 @@ async function criarPedidoDoOrcamentoComEstoque(user, dadosPedido) {
                     throw new Error(`Estoque insuficiente para o filamento ${filamento.nome || "selecionado"}. Disponível: ${estoqueAtual} kg, necessário: ${consumoEmKg} kg.`);
                 }
                 filamento.estoqueAtual = estoqueAtual - consumoEmKg;
+                filamento.historicoEstoque = [{ tipo: "saida", data: dadosPedido.data, quantidade: consumoEmKg,
+                    pedidoId: pedidoRef.id, cliente: dadosPedido.cliente }, ...(filamento.historicoEstoque || [])].slice(0, 50);
                 filamentoControladoConsumido = true;
             }
         }
 
+        const criadoEm = new Date();
         transaction.set(pedidoRef, {
             usuario: user.uid,
             pedidoId: Date.now(),
             orcamentoOrigemId,
+            orcamentoReutilizado: reutilizandoOrcamento,
             ...dadosPedido,
-            criadoEm: new Date()
+            criadoEm,
+            statusAtualizadoEm: criadoEm,
+            statusAlteradoPor: user.uid,
+            historicoStatus: [{ status: dadosPedido.status || "Aguardando", em: criadoEm, por: user.uid }]
         });
         if (consumoPorInsumo.size > 0 || filamentoControladoConsumido) {
             transaction.set(configuracaoRef, {
@@ -423,11 +564,13 @@ async function criarPedidoDoOrcamentoComEstoque(user, dadosPedido) {
                 filamentos: filamentosAtualizados
             }, { merge: true });
         }
-        transaction.update(orcamentoRef, {
-            status: "Aprovado",
-            convertidoEmPedidoId: pedidoRef.id,
-            convertidoEm: new Date()
-        });
+        if (!reutilizandoOrcamento) {
+            transaction.update(orcamentoRef, {
+                status: "Aprovado",
+                convertidoEmPedidoId: pedidoRef.id,
+                convertidoEm: new Date()
+            });
+        }
     });
 }
 
@@ -439,6 +582,10 @@ async function salvar() {
         const data = document.getElementById("data").value || new Date().toISOString().slice(0, 10);
         const dataPagamento = document.getElementById("dataPagamento").value || "";
         const dataEntrega = document.getElementById("dataEntrega").value || "";
+        const dataProducao = document.getElementById("dataProducao").value || "";
+        const tempoImpressaoPrevisto = Number(document.getElementById("tempoImpressaoPrevisto").value || 0);
+        const impressoraProducao = document.getElementById("impressoraProducao").value.trim();
+        const prioridadeProducao = document.getElementById("prioridadeProducao").value || "normal";
         const cliente = document.getElementById("cliente").value.trim();
         const telefone = document.getElementById("telefone").value.trim();
         const produto = document.getElementById("produto").value.trim();
@@ -463,31 +610,57 @@ async function salvar() {
         const telefoneLimpo = telefone.replace(/\D/g, "");
         let clienteId = document.getElementById("cliente").dataset.clienteId || "";
         try {
-            clienteId = await salvarCadastroCliente(user, cliente, telefoneLimpo);
+            clienteId = await salvarCadastroCliente(user, cliente, telefoneLimpo, clienteId);
         } catch (erroCliente) {
-            console.warn("Não foi possível atualizar o cadastro do cliente:", erroCliente);
+            throw new Error("Não foi possível salvar o cliente: " + erroCliente.message);
         }
-        const total = qtd * valor;
+        const total = qtd * valor + (pedidoExistente?.checkoutId ? Number(pedidoExistente.frete || 0) : 0);
         const lucro = total - (qtd * custo);
  
         const dadosPedido = {
-            data, dataPagamento, dataEntrega, cliente, clienteId,
+            data, dataPagamento, dataEntrega, dataProducao, tempoImpressaoPrevisto,
+            impressoraProducao, prioridadeProducao, cliente, clienteId,
             telefone: telefoneLimpo, produto,
-            qtd, valor, custo, total, lucro,
+            qtd, valor, custo, custoConfirmado: true, total, lucro,
             pagamento, status, pago
         };
  
         if (pedidoEditando) {
-            await db.collection("pedidos").doc(pedidoEditando).update(dadosPedido);
+            const pedidoRef = db.collection("pedidos").doc(pedidoEditando);
+            const historico = await db.collection("pagamentos").where("usuario", "==", user.uid)
+                .where("pedidoId", "==", pedidoEditando).get();
+            await db.runTransaction(async tx => {
+                const doc = await tx.get(pedidoRef);
+                if (!doc.exists || doc.data().usuario !== user.uid) throw new Error("Pedido não encontrado.");
+                const atual = doc.data();
+                if (atual.parcelamentoGrupoId && (cliente !== atual.cliente || telefoneLimpo !== String(atual.telefone || "")
+                    || qtd !== Number(atual.qtd) || LV.centavos(valor) !== LV.centavos(atual.valor)
+                    || LV.centavos(total) !== LV.centavos(atual.total))) {
+                    throw new Error("Cliente, quantidade e valores não podem ser alterados enquanto o pedido pertence a um parcelamento conjunto.");
+                }
+                if (atual.checkoutId && (qtd !== atual.qtd || LV.centavos(valor) !== LV.centavos(atual.valor)
+                    || LV.centavos(total) !== LV.centavos(atual.total))) throw new Error('Os itens e o total deste pedido pago online devem ser preservados. Você pode informar o custo e atualizar as datas.');
+                const temHistorico = Number.isFinite(atual.valorRecebido) || historico.docs.length > 0;
+                const recebido = LV.recebidoCentavos(atual, historico.docs.map(item => item.data()));
+                if (temHistorico && LV.centavos(total) < recebido) throw new Error("O total não pode ser menor que o valor já recebido.");
+                const alteracoes = [...(atual.historicoAlteracoes || []), { acao: "pedido editado", em: new Date(), por: user.uid }].slice(-100);
+                tx.update(pedidoRef, { ...dadosPedido, ...(temHistorico ? {
+                    valorRecebido: recebido / 100, pago: recebido >= LV.centavos(total) ? "Sim" : "Não"
+                } : {}), historicoAlteracoes: alteracoes });
+            });
             pedidoEditando = null;
         } else if (orcamentoOrigemId) {
             await criarPedidoDoOrcamentoComEstoque(user, dadosPedido);
         } else {
+            const criadoEm = new Date();
             await db.collection("pedidos").add({
                 usuario: user.uid,
                 pedidoId: Date.now(),
                 ...dadosPedido,
-                criadoEm: new Date()
+                criadoEm,
+                statusAtualizadoEm: criadoEm,
+                statusAlteradoPor: user.uid,
+                historicoStatus: [{ status, em: criadoEm, por: user.uid }]
             });
         }
  
@@ -500,42 +673,50 @@ async function salvar() {
 }
  
 function limparCampos() {
-    ["data","dataPagamento","dataEntrega","cliente","telefone","produto","qtd","valor","custo"].forEach(id => {
+    ["data","dataPagamento","dataEntrega","dataProducao","tempoImpressaoPrevisto","impressoraProducao","cliente","telefone","produto","qtd","valor","custo"].forEach(id => {
         document.getElementById(id).value = "";
     });
     delete document.getElementById("cliente").dataset.clienteId;
     document.getElementById("pago").value = "Não";
     document.getElementById("pagamento").value = "Pix";
+    document.getElementById("prioridadeProducao").value = "normal";
     orcamentoOrigemId = "";
+    reutilizandoOrcamento = false;
 }
  
+let carregandoArea = false;
+const estadoArea = LVEstadoArea.criar(document.getElementById('sistema'), carregarPedidos);
 async function carregarPedidos() {
     const user = auth.currentUser;
-    pedidos = [];
-    pagamentos = [];
-    const snapshot = await db.collection("pedidos").where("usuario", "==", user.uid).get();
-    snapshot.forEach(doc => {
-        const pedido = doc.data();
-        if (!pedido.cliente || !pedido.produto || pedido.total <= 0) return;
-        pedido.docId = doc.id;
-        pedidos.push(pedido);
-    });
+    if (!user || carregandoArea) return;
+    carregandoArea = true;
+    estadoArea.carregando();
     try {
-        const pagamentosSnapshot = await db.collection("pagamentos").where("usuario", "==", user.uid).get();
-        pagamentosSnapshot.forEach(doc => pagamentos.push({ docId: doc.id, ...doc.data() }));
+        const snapshots = await Promise.all([
+            db.collection('pedidos').where('usuario', '==', user.uid).get(),
+            db.collection('pagamentos').where('usuario', '==', user.uid).get(),
+            db.collection('parcelamentosClientes').where('usuario', '==', user.uid).get()
+        ]);
+        if (auth.currentUser?.uid !== user.uid) return;
+        const todosPedidos = snapshots[0].docs.map(doc => ({ ...doc.data(), docId: doc.id })).filter(p => p.cliente && p.produto && p.total > 0);
+        pedidosExcluidos = todosPedidos.filter(p => p.excluido === true);
+        pedidos = todosPedidos.filter(p => p.excluido !== true);
+        pagamentos = snapshots[1].docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+        parcelamentosClientes = snapshots[2].docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+        pedidos.sort((a, b) => {
+            const data = valor => new Date(String(valor || '').includes('/') ? String(valor).split('/').reverse().join('-') : valor);
+            return data(a.data) - data(b.data);
+        });
+        render();
+        estadoArea.pronto();
     } catch (erro) {
-        console.warn("Não foi possível carregar pagamentos:", erro);
-    }
-    pedidos.sort((a, b) => {
-        const dataA = new Date(a.data.includes("/") ? a.data.split("/").reverse().join("-") : a.data);
-        const dataB = new Date(b.data.includes("/") ? b.data.split("/").reverse().join("-") : b.data);
-        return dataA - dataB;
-    });
-    render();
+        console.warn('Não foi possível atualizar esta área:', erro);
+        estadoArea.falhou();
+    } finally { carregandoArea = false; }
 }
 
 function pagamentosDoPedido(pedidoId) {
-    return pagamentos.filter(pagamento => pagamento.pedidoId === pedidoId);
+    return LV.pagamentosDoPedido(pagamentos, pedidoId);
 }
 
 function valorPagoPedido(pedido) {
@@ -561,7 +742,7 @@ function situacaoPagamento(pedido) {
 async function carregarPedidosCatalogo() {
     try {
         pedidosCatalogo = [];
-        const snapshot = await db.collection("pedidosCatalogo").get();
+        const snapshot = await db.collection("pedidosCatalogo").where("status", "==", "novo").get();
         snapshot.forEach(doc => {
             const pedido = doc.data();
             if (pedido.status !== "novo") return;
@@ -574,13 +755,14 @@ async function carregarPedidosCatalogo() {
         });
         renderPedidosCatalogo();
     } catch (erro) {
-        console.error("Erro ao carregar pedidos do catálogo:", erro);
+        console.error("Erro ao carregar pedidos da loja virtual:", erro);
     }
 }
 
 function renderPedidosCatalogo() {
     const card = document.getElementById("cardPedidosCatalogo");
     const lista = document.getElementById("listaPedidosCatalogo");
+    document.getElementById("contadorPedidosCatalogo").textContent = pedidosCatalogo.length;
 
     if (pedidosCatalogo.length === 0) {
         card.style.display = "none";
@@ -613,30 +795,37 @@ async function aprovarPedidoCatalogo(indice) {
     const pedidoCatalogo = pedidosCatalogo[indice];
     const user = auth.currentUser;
     if (!pedidoCatalogo || !user) return;
-    if (!confirm("Transformar este pedido do catálogo em pedido interno?")) return;
+    if (!confirm("Transformar este pedido da loja virtual em pedido interno?")) return;
 
     try {
         const cliente = (pedidoCatalogo.cliente || "").trim();
         const telefone = String(pedidoCatalogo.telefone || "").replace(/\D/g, "");
         const itens = pedidoCatalogo.itens || [];
         if (itens.length === 0) {
-            alert("Esse pedido do catálogo não tem itens.");
+            alert("Esse pedido da loja virtual não tem itens.");
             return;
         }
 
-        let clienteId = gerarClienteId(user.uid, cliente);
+        let clienteId = "";
         try {
             clienteId = await salvarCadastroCliente(user, cliente, telefone);
         } catch (erroCliente) {
-            console.warn("Não foi possível atualizar o cadastro do cliente:", erroCliente);
+            throw new Error("Não foi possível salvar o cliente: " + erroCliente.message);
         }
 
         const dataHoje = new Date().toISOString().slice(0, 10);
         await db.runTransaction(async transaction => {
             // O conteúdo de pedidosCatalogo veio de uma tela pública. Portanto,
             // nunca usamos nome, preço, disponibilidade ou subtotal enviados pelo cliente.
+            const catalogoRef = db.collection("pedidosCatalogo").doc(pedidoCatalogo.docId);
+            const catalogoDoc = await transaction.get(catalogoRef);
+            if (!catalogoDoc.exists || catalogoDoc.data().status !== "novo") {
+                throw new Error("Este pedido já foi aprovado ou arquivado. Atualize a tela.");
+            }
+            const itensAtuais = catalogoDoc.data().itens;
+            if (!Array.isArray(itensAtuais) || !itensAtuais.length) throw new Error("Pedido sem itens válidos.");
             const quantidadesPorProduto = new Map();
-            itens.forEach(item => {
+            itensAtuais.forEach(item => {
                 const produtoId = String(item.produtoId || "").trim();
                 const qtd = Number(item.qtd);
                 if (!produtoId || !Number.isInteger(qtd) || qtd < 1 || qtd > 100) {
@@ -670,8 +859,9 @@ async function aprovarPedidoCatalogo(indice) {
             }
 
             let totalAprovado = 0;
+            const criadoEm = new Date();
             itensConferidos.forEach((item, i) => {
-                const custo = 0;
+                const custo = null;
                 const total = item.qtd * item.valor;
                 totalAprovado += total;
                 const ref = db.collection("pedidos").doc();
@@ -690,13 +880,17 @@ async function aprovarPedidoCatalogo(indice) {
                     valor: item.valor,
                     custo,
                     total,
-                    lucro: total,
+                    lucro: null,
+                    custoConfirmado: false,
                     pagamento: "A combinar",
                     status: "Aguardando",
                     pago: "Não",
                     origem: "catalogo",
                     pedidoCatalogoId: pedidoCatalogo.docId,
-                    criadoEm: new Date()
+                    criadoEm,
+                    statusAtualizadoEm: criadoEm,
+                    statusAlteradoPor: user.uid,
+                    historicoStatus: [{ status: "Aguardando", em: criadoEm, por: user.uid }]
                 });
             });
 
@@ -726,8 +920,8 @@ async function aprovarPedidoCatalogo(indice) {
         await carregarPedidos();
         alert("Pedido aprovado com preços e estoque conferidos. O estoque de pronta entrega foi atualizado.");
     } catch (erro) {
-        console.error("Erro ao aprovar pedido do catálogo:", erro);
-        alert(`Não foi possível aprovar o pedido do catálogo: ${erro.code || ""} ${erro.message || erro}`);
+        console.error("Erro ao aprovar pedido da loja virtual:", erro);
+        alert(`Não foi possível aprovar o pedido da loja virtual: ${erro.code || ""} ${erro.message || erro}`);
     }
 }
 
@@ -735,22 +929,160 @@ async function arquivarPedidoCatalogo(indice) {
     const pedidoCatalogo = pedidosCatalogo[indice];
     const user = auth.currentUser;
     if (!pedidoCatalogo || !user) return;
-    if (!confirm("Arquivar este pedido recebido do catálogo?")) return;
+    if (!confirm("Arquivar este pedido recebido da loja virtual?")) return;
 
-    await db.collection("pedidosCatalogo").doc(pedidoCatalogo.docId).update({
+    const ref = db.collection("pedidosCatalogo").doc(pedidoCatalogo.docId);
+    await db.runTransaction(async tx => {
+        const doc = await tx.get(ref);
+        if (!doc.exists || doc.data().status !== "novo") throw new Error("Pedido já processado. Atualize a tela.");
+        tx.update(ref, {
         status: "arquivado",
         arquivadoEm: new Date(),
         arquivadoPor: user.uid
+        });
     });
     carregarPedidosCatalogo();
 }
  
 async function alterarStatus(id, novoStatus) {
+    const statusValidos = ["Aguardando", "Imprimindo", "Pronto", "Entregue"];
+    if (!statusValidos.includes(novoStatus)) return;
+    const user = auth.currentUser;
+    if (!user) return;
+    const estadoLista = capturarEstadoListaProducao(id);
     try {
-        await db.collection("pedidos").doc(id).update({ status: novoStatus });
-        carregarPedidos();
+        const ref = db.collection("pedidos").doc(id);
+        await db.runTransaction(async tx => {
+            const doc = await tx.get(ref);
+            if (!doc.exists || doc.data().usuario !== user.uid) throw new Error("Pedido não encontrado.");
+            const pedido = doc.data();
+            const statusAtual = pedido.status || "Aguardando";
+            if (statusAtual === novoStatus) return;
+            const agora = new Date();
+            const historico = Array.isArray(pedido.historicoStatus)
+                ? pedido.historicoStatus.slice(-49)
+                : [{ status: statusAtual, em: pedido.statusAtualizadoEm || pedido.criadoEm || agora, por: pedido.statusAlteradoPor || user.uid }];
+            historico.push({ status: novoStatus, em: agora, por: user.uid });
+            tx.update(ref, {
+                status: novoStatus,
+                statusAtualizadoEm: agora,
+                statusAlteradoPor: user.uid,
+                historicoStatus: historico,
+                atualizadoEm: agora
+            });
+        });
+        await carregarPedidos();
+        restaurarEstadoListaProducao(estadoLista);
     } catch (erro) {
         console.error("Erro ao atualizar:", erro);
+        alert(erro.message || "Não foi possível alterar o status.");
+        await carregarPedidos();
+        restaurarEstadoListaProducao(estadoLista);
+    }
+}
+
+function capturarEstadoListaProducao(pedidoId) {
+    const checks = [...document.querySelectorAll(".selecionado")];
+    const ancora = checks.find(check => check.dataset.id === pedidoId)?.closest(".pedido-producao");
+    return {
+        pedidoId,
+        topoAncora: ancora ? ancora.getBoundingClientRect().top : null,
+        scrollY: window.scrollY,
+        selecionados: checks.filter(check => check.checked).map(check => check.dataset.id),
+        detalhesAbertos: checks.filter(check => check.closest(".pedido-producao")?.querySelector("details[open]"))
+            .map(check => check.dataset.id)
+    };
+}
+
+function restaurarEstadoListaProducao(estado) {
+    if (!estado) return;
+    const selecionados = new Set(estado.selecionados || []);
+    const detalhesAbertos = new Set(estado.detalhesAbertos || []);
+    const checks = [...document.querySelectorAll(".selecionado")];
+    checks.forEach(check => {
+        check.checked = selecionados.has(check.dataset.id);
+        const detalhes = check.closest(".pedido-producao")?.querySelector("details");
+        if (detalhes && detalhesAbertos.has(check.dataset.id)) detalhes.open = true;
+    });
+    const ancora = checks.find(check => check.dataset.id === estado.pedidoId)?.closest(".pedido-producao");
+    if (ancora && Number.isFinite(estado.topoAncora)) {
+        const diferenca = ancora.getBoundingClientRect().top - estado.topoAncora;
+        window.scrollTo({ top: Math.max(0, estado.scrollY + diferenca), behavior: "auto" });
+    } else {
+        window.scrollTo({ top: estado.scrollY, behavior: "auto" });
+    }
+}
+
+function filtrarPedidosEntregues() {
+    const busca = normalizarTexto(document.getElementById("buscaEntregues")?.value || "");
+    const mes = document.getElementById("mesEntregues")?.value || "";
+    const itens = [...document.querySelectorAll(".pedido-entregue-revisao")];
+    let visiveis = 0;
+    itens.forEach(item => {
+        const correspondeNome = !busca || String(item.dataset.busca || "").includes(busca);
+        const correspondeMes = !mes || item.dataset.mes === mes;
+        const corresponde = correspondeNome && correspondeMes;
+        item.style.display = corresponde ? "flex" : "none";
+        if (corresponde) visiveis++;
+    });
+    const aviso = document.getElementById("nenhumEntregueEncontrado");
+    if (aviso) aviso.style.display = itens.length && !visiveis ? "block" : "none";
+}
+
+async function alterarStatusCliente(pedidoId, novoStatus) {
+    const statusValidos = ["Aguardando", "Imprimindo", "Pronto"];
+    if (!statusValidos.includes(novoStatus)) return;
+    const user = auth.currentUser;
+    const pedidosCliente = pedidosAgrupadosDoCliente(pedidoId).filter(pedido => (pedido.status || "Aguardando") !== "Entregue");
+    if (!user || !pedidosCliente.length) return;
+    const estadoLista = capturarEstadoListaProducao(pedidoId);
+    const janelaAviso = novoStatus === "Imprimindo" ? window.open("about:blank", "_blank") : null;
+    if (janelaAviso) {
+        janelaAviso.document.title = "Preparando mensagem";
+        janelaAviso.document.body.textContent = "Preparando a mensagem com todos os produtos do cliente...";
+    }
+    try {
+        await db.runTransaction(async tx => {
+            const documentos = [];
+            for (const pedido of pedidosCliente) {
+                const ref = db.collection("pedidos").doc(pedido.docId);
+                const doc = await tx.get(ref);
+                if (!doc.exists || doc.data().usuario !== user.uid) throw new Error("Um dos pedidos do cliente não foi encontrado.");
+                documentos.push({ ref, dados: doc.data() });
+            }
+            const agora = new Date();
+            documentos.forEach(({ ref, dados }) => {
+                const statusAtual = dados.status || "Aguardando";
+                if (statusAtual === novoStatus) return;
+                const historico = Array.isArray(dados.historicoStatus)
+                    ? dados.historicoStatus.slice(-49)
+                    : [{ status: statusAtual, em: dados.statusAtualizadoEm || dados.criadoEm || agora,
+                        por: dados.statusAlteradoPor || user.uid }];
+                historico.push({ status: novoStatus, em: agora, por: user.uid });
+                tx.update(ref, { status: novoStatus, statusAtualizadoEm: agora, statusAlteradoPor: user.uid,
+                    historicoStatus: historico, atualizadoEm: agora });
+            });
+        });
+        await carregarPedidos();
+        restaurarEstadoListaProducao(estadoLista);
+        if (novoStatus === "Imprimindo") {
+            const primeiro = pedidosCliente[0];
+            const telefone = normalizarTelefoneWhatsApp(primeiro.telefone);
+            if (!primeiro.telefone) {
+                if (janelaAviso) janelaAviso.close();
+                alert("Os pedidos foram atualizados, mas o cliente não possui WhatsApp cadastrado.");
+            } else {
+                const destino = `https://wa.me/${telefone}?text=${encodeURIComponent(montarMensagemPedidosSelecionados(pedidosCliente, "imprimindo"))}`;
+                if (janelaAviso) janelaAviso.location.href = destino;
+                else alert("Os pedidos foram atualizados. O navegador bloqueou a abertura do WhatsApp; use o botão WhatsApp dos selecionados.");
+            }
+        }
+    } catch (erro) {
+        if (janelaAviso) janelaAviso.close();
+        console.error("Erro ao atualizar os pedidos do cliente:", erro);
+        alert(erro.message || "Não foi possível alterar o status dos pedidos.");
+        await carregarPedidos();
+        restaurarEstadoListaProducao(estadoLista);
     }
 }
  
@@ -768,6 +1100,8 @@ function abrirRegistroPagamento(id) {
     if (!pedido) return;
     const saldo = saldoPedido(pedido);
     if (saldo <= 0) { alert("Este pedido já está quitado."); return; }
+    document.getElementById("pagamentoParcelaId").value = "";
+    document.getElementById("valorRecebimento").readOnly = false;
     document.getElementById("pagamentoPedidoId").value = id;
     document.getElementById("dataRecebimento").value = new Date().toISOString().slice(0, 10);
     document.getElementById("valorRecebimento").value = saldo.toFixed(2);
@@ -784,93 +1118,180 @@ function abrirRegistroPagamento(id) {
 function fecharRegistroPagamento() {
     document.getElementById("cardPagamento").style.display = "none";
     document.getElementById("pagamentoPedidoId").value = "";
+    document.getElementById("pagamentoParcelaId").value = "";
+    document.getElementById("pagamentoGrupoId").value = "";
+    document.getElementById("valorRecebimento").readOnly = false;
+}
+
+function abrirRegistroParcela(pedidoId, parcelaId) {
+    const pedido = pedidos.find(item => item.docId === pedidoId);
+    const parcela = pedido?.parcelamento?.parcelas?.find(item => item.id === parcelaId);
+    if (!pedido || !parcela || parcela.pago) return;
+    document.getElementById("pagamentoPedidoId").value = pedidoId;
+    document.getElementById("pagamentoParcelaId").value = parcelaId;
+    document.getElementById("dataRecebimento").value = new Date().toISOString().slice(0, 10);
+    document.getElementById("valorRecebimento").value = Number(parcela.valor || 0).toFixed(2);
+    document.getElementById("valorRecebimento").readOnly = true;
+    document.getElementById("formaRecebimento").value = pedido.pagamento || "Pix";
+    document.getElementById("resumoPagamento").innerHTML = `<strong>${escaparHTML(pedido.cliente)}</strong> — Parcela ${parcela.numero}/${pedido.parcelamento.quantidade}<br>Vencimento: ${formatarData(parcela.vencimento)} · <strong>R$ ${Number(parcela.valor || 0).toFixed(2)}</strong>`;
+    document.getElementById("historicoPagamento").innerHTML = "";
+    document.getElementById("cardPagamento").style.display = "block";
+    document.getElementById("cardPagamento").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function proximoMesISO() {
+    const hoje = new Date();
+    const dia = hoje.getDate();
+    const ultimoDia = new Date(hoje.getFullYear(), hoje.getMonth() + 2, 0).getDate();
+    const data = new Date(hoje.getFullYear(), hoje.getMonth() + 1, Math.min(dia, ultimoDia));
+    return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
+}
+
+function abrirParcelamento(pedidoId) {
+    const pedido = pedidos.find(item => item.docId === pedidoId);
+    if (!pedido) return;
+    const saldo = saldoPedido(pedido);
+    if (Number(pedido.total || 0) < 100) { alert("O parcelamento está disponível para pedidos a partir de R$ 100,00."); return; }
+    if (saldo <= 0) { alert("Este pedido já está quitado."); return; }
+    if (pedido.parcelamento?.parcelas?.some(parcela => parcela.pago)) { alert("Este parcelamento já possui parcela paga e não pode ser refeito."); return; }
+    document.getElementById("parcelamentoPedidoId").value = pedidoId;
+    document.getElementById("quantidadeParcelas").value = String(pedido.parcelamento?.quantidade || 2);
+    document.getElementById("primeiroVencimento").value = pedido.parcelamento?.parcelas?.[0]?.vencimento || proximoMesISO();
+    document.getElementById("resumoParcelamento").innerHTML = `<strong>${escaparHTML(pedido.cliente)}</strong> — ${escaparHTML(pedido.produto)}<br>Saldo a parcelar: <strong>R$ ${saldo.toFixed(2)}</strong>`;
+    document.getElementById("cardParcelamento").style.display = "block";
+    document.getElementById("cardParcelamento").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function fecharParcelamento() {
+    document.getElementById("cardParcelamento").style.display = "none";
+    document.getElementById("parcelamentoPedidoId").value = "";
+    document.getElementById("parcelamentoGrupoId").value = "";
+    document.getElementById("parcelamentoPedidoIds").value = "";
+}
+
+function chaveAgrupamentoCliente(pedido) {
+    return `${normalizarTexto(pedido?.cliente)}:${String(pedido?.telefone || "").replace(/\D/g, "")}`;
+}
+
+function pedidosAgrupadosDoCliente(pedidoId) {
+    const referencia = pedidos.find(pedido => pedido.docId === pedidoId);
+    if (!referencia) return [];
+    const chave = chaveAgrupamentoCliente(referencia);
+    return pedidos.filter(pedido => chaveAgrupamentoCliente(pedido) === chave);
+}
+
+function abrirParcelamentoCliente(pedidoId, grupoId = "") {
+    const grupo = grupoId ? parcelamentosClientes.find(item => item.docId === grupoId) : null;
+    const pedidosCliente = pedidosAgrupadosDoCliente(pedidoId);
+    const elegiveis = pedidosCliente.filter(pedido => saldoPedido(pedido) > 0 && !pedido.parcelamento?.parcelas?.length
+        && (!pedido.parcelamentoGrupoId || pedido.parcelamentoGrupoId === grupoId));
+    const saldo = elegiveis.reduce((total, pedido) => total + saldoPedido(pedido), 0);
+    const totalPedidos = elegiveis.reduce((total, pedido) => total + Number(pedido.total || 0), 0);
+    if (!elegiveis.length || totalPedidos < 100) { alert("O total conjunto precisa ser de pelo menos R$ 100,00."); return; }
+    if (grupo?.parcelas?.some(parcela => parcela.pago)) { alert("Este parcelamento já possui parcela paga e não pode ser refeito."); return; }
+    document.getElementById("parcelamentoPedidoId").value = "";
+    document.getElementById("parcelamentoGrupoId").value = grupoId;
+    document.getElementById("parcelamentoPedidoIds").value = elegiveis.map(pedido => pedido.docId).join(",");
+    document.getElementById("quantidadeParcelas").value = String(grupo?.quantidade || 2);
+    document.getElementById("primeiroVencimento").value = grupo?.parcelas?.[0]?.vencimento || proximoMesISO();
+    document.getElementById("resumoParcelamento").innerHTML = `<strong>${escaparHTML(elegiveis[0].cliente)}</strong> — ${elegiveis.length} ${elegiveis.length === 1 ? "pedido" : "pedidos"}<br>Saldo conjunto a parcelar: <strong>R$ ${saldo.toFixed(2)}</strong>`;
+    document.getElementById("cardParcelamento").style.display = "block";
+    document.getElementById("cardParcelamento").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function abrirRegistroParcelaCliente(grupoId, parcelaId) {
+    const grupo = parcelamentosClientes.find(item => item.docId === grupoId);
+    const parcela = grupo?.parcelas?.find(item => item.id === parcelaId);
+    if (!grupo || !parcela || parcela.pago) return;
+    document.getElementById("pagamentoPedidoId").value = "";
+    document.getElementById("pagamentoParcelaId").value = parcelaId;
+    document.getElementById("pagamentoGrupoId").value = grupoId;
+    document.getElementById("dataRecebimento").value = new Date().toISOString().slice(0, 10);
+    document.getElementById("valorRecebimento").value = Number(parcela.valor || 0).toFixed(2);
+    document.getElementById("valorRecebimento").readOnly = true;
+    document.getElementById("formaRecebimento").value = "Pix";
+    document.getElementById("resumoPagamento").innerHTML = `<strong>${escaparHTML(grupo.cliente)}</strong> — Parcela conjunta ${parcela.numero}/${grupo.quantidade}<br>Vencimento: ${formatarData(parcela.vencimento)} · <strong>R$ ${Number(parcela.valor || 0).toFixed(2)}</strong>`;
+    document.getElementById("historicoPagamento").innerHTML = "";
+    document.getElementById("cardPagamento").style.display = "block";
+    document.getElementById("cardPagamento").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+async function salvarParcelamento() {
+    const user = auth.currentUser;
+    const pedidoId = document.getElementById("parcelamentoPedidoId").value;
+    const grupoId = document.getElementById("parcelamentoGrupoId").value;
+    const pedidoIds = document.getElementById("parcelamentoPedidoIds").value.split(",").filter(Boolean);
+    const quantidade = Number(document.getElementById("quantidadeParcelas").value);
+    const vencimento = document.getElementById("primeiroVencimento").value;
+    const botao = document.getElementById("btnSalvarParcelamento");
+    if (!user || (!pedidoId && !pedidoIds.length) || !vencimento || botao.disabled) return;
+    botao.disabled = true;
+    try {
+        if (pedidoIds.length) await LV.criarParcelamentoCliente(db, user.uid, grupoId, pedidoIds, quantidade, vencimento);
+        else await LV.criarParcelamento(db, user.uid, pedidoId, quantidade, vencimento);
+        fecharParcelamento();
+        await carregarPedidos();
+    } catch (erro) { alert(erro.message || "Não foi possível criar o parcelamento."); }
+    finally { botao.disabled = false; }
 }
 
 async function registrarPagamento() {
     const user = auth.currentUser;
     const pedidoId = document.getElementById("pagamentoPedidoId").value;
-    const pedido = pedidos.find(p => p.docId === pedidoId);
     const valor = Number(document.getElementById("valorRecebimento").value);
-    const data = document.getElementById("dataRecebimento").value || new Date().toISOString().slice(0, 10);
+    const data = document.getElementById("dataRecebimento").value;
     const forma = document.getElementById("formaRecebimento").value;
-    if (!user || !pedido || !Number.isFinite(valor) || valor <= 0) { alert("Informe um valor de pagamento válido."); return; }
-    const saldo = saldoPedido(pedido);
-    if (valor > saldo + 0.009) { alert(`O valor informado é maior que o saldo de R$ ${saldo.toFixed(2)}.`); return; }
+    const parcelaId = document.getElementById("pagamentoParcelaId").value;
+    const grupoId = document.getElementById("pagamentoGrupoId").value;
+    if (!user || (!pedidoId && !grupoId) || !data) { alert("Informe pedido e data do recebimento."); return; }
     const botao = document.getElementById("btnRegistrarPagamento");
+    if (botao.disabled) return;
     botao.disabled = true;
     try {
-        const pedidoRef = db.collection("pedidos").doc(pedido.docId);
-        const pagamentosQuery = db.collection("pagamentos")
-            .where("usuario", "==", user.uid)
-            .where("pedidoId", "==", pedido.docId);
-        await db.runTransaction(async transaction => {
-            const pedidoDoc = await transaction.get(pedidoRef);
-            const pagamentosDoc = await transaction.get(pagamentosQuery);
-            if (!pedidoDoc.exists || pedidoDoc.data().usuario !== user.uid) {
-                throw new Error("Pedido não encontrado ou sem permissão.");
-            }
-
-            const pedidoAtual = pedidoDoc.data();
-            const total = Math.round(Number(pedidoAtual.total || 0) * 100);
-            const recebido = pagamentosDoc.docs.reduce((soma, doc) => soma + Math.round(Number(doc.data().valor || 0) * 100), 0);
-            const saldoAtual = total - recebido;
-            const valorCentavos = Math.round(valor * 100);
-            if (total <= 0 || saldoAtual <= 0) throw new Error("Este pedido já está quitado.");
-            if (valorCentavos > saldoAtual) throw new Error(`O valor informado é maior que o saldo de R$ ${(saldoAtual / 100).toFixed(2)}.`);
-
-            transaction.set(db.collection("pagamentos").doc(), {
-                usuario: user.uid,
-                pedidoId: pedido.docId,
-                clienteId: pedidoAtual.clienteId || "",
-                cliente: pedidoAtual.cliente || "",
-                data,
-                forma,
-                valor: valorCentavos / 100,
-                criadoEm: new Date()
-            });
-            transaction.update(pedidoRef, {
-                pago: valorCentavos >= saldoAtual ? "Sim" : "Não",
-                valorRecebido: (recebido + valorCentavos) / 100,
-                atualizadoEm: new Date()
-            });
-        });
+        if (grupoId && parcelaId) await LV.registrarParcelaCliente(db, user.uid, grupoId, parcelaId, { data, forma });
+        else if (parcelaId) await LV.registrarParcela(db, user.uid, pedidoId, parcelaId, { data, forma });
+        else await LV.registrarPagamento(db, user.uid, pedidoId, { valor, data, forma });
         fecharRegistroPagamento();
         await carregarPedidos();
-    } catch (erro) {
-        console.error("Erro ao registrar pagamento:", erro);
-        alert(erro.message || "Não foi possível registrar o pagamento. Verifique as regras do Firestore.");
-    } finally {
-        botao.disabled = false;
-    }
+    } catch (erro) { alert(erro.message || "Não foi possível registrar o pagamento."); }
+    finally { botao.disabled = false; }
 }
- 
+
 async function excluir(docId) {
-    if (!confirm("Tem certeza que deseja excluir esse pedido?")) return;
+    if (!confirm("Mover este pedido para a lixeira? Os pagamentos e o histórico serão preservados.")) return;
     try {
-        const pedidoRef = db.collection("pedidos").doc(docId);
-        const pagamentosQuery = db.collection("pagamentos")
-            .where("usuario", "==", auth.currentUser.uid)
-            .where("pedidoId", "==", docId);
-        await db.runTransaction(async transaction => {
-            const pedidoDoc = await transaction.get(pedidoRef);
-            const pagamentosDoc = await transaction.get(pagamentosQuery);
-            if (!pedidoDoc.exists || pedidoDoc.data().usuario !== auth.currentUser?.uid) {
-                throw new Error("Pedido não encontrado ou sem permissão.");
-            }
-            pagamentosDoc.forEach(pagamento => transaction.delete(pagamento.ref));
-            transaction.delete(pedidoRef);
-        });
+        await LV.excluirPedido(db, auth.currentUser.uid, docId);
         await carregarPedidos();
-    } catch (erro) {
-        console.error("Erro ao excluir pedido:", erro);
-        alert(erro.message || "Não foi possível excluir o pedido.");
-    }
+    } catch (erro) { alert(erro.message || "Não foi possível excluir o pedido."); }
 }
- 
+
+function renderLixeiraPedidos() {
+    const area = document.getElementById("listaLixeiraPedidos");
+    if (!area) return;
+    area.innerHTML = pedidosExcluidos.length ? pedidosExcluidos.map(p => `<div class="pedido-entregue-revisao"><div><strong>${escaparHTML(p.cliente)}</strong><span>${escaparHTML(p.produto)} · excluído em ${p.excluidoEm?.toDate ? p.excluidoEm.toDate().toLocaleString("pt-BR") : "data não informada"}</span></div><button onclick="restaurarPedido('${p.docId}')">Restaurar</button></div>`).join("") : "<p>Nenhum pedido na lixeira.</p>";
+}
+
+async function restaurarPedido(id) {
+    const user = auth.currentUser;
+    const ref = db.collection("pedidos").doc(id);
+    await db.runTransaction(async tx => {
+        const doc = await tx.get(ref);
+        if (!doc.exists || doc.data().usuario !== user.uid || doc.data().excluido !== true) throw new Error("Pedido não encontrado na lixeira.");
+        const agora = new Date();
+        const historico = [...(doc.data().historicoAlteracoes || []), { acao: "restaurado", em: agora, por: user.uid }].slice(-100);
+        tx.update(ref, { excluido: false, restauradoEm: agora, restauradoPor: user.uid, historicoAlteracoes: historico });
+    });
+    await carregarPedidos();
+}
+
 function editarPedido(p) {
     document.getElementById("data").value = p.data || "";
     document.getElementById("dataPagamento").value = p.dataPagamento || "";
     document.getElementById("dataEntrega").value = p.dataEntrega || "";
+    document.getElementById("dataProducao").value = p.dataProducao || "";
+    document.getElementById("tempoImpressaoPrevisto").value = Number(p.tempoImpressaoPrevisto || 0) || "";
+    document.getElementById("impressoraProducao").value = p.impressoraProducao || "";
+    document.getElementById("prioridadeProducao").value = p.prioridadeProducao || "normal";
     document.getElementById("cliente").value = p.cliente || "";
     document.getElementById("telefone").value = p.telefone || "";
     if (p.clienteId) {
@@ -881,7 +1302,7 @@ function editarPedido(p) {
     document.getElementById("produto").value = p.produto || "";
     document.getElementById("qtd").value = p.qtd || "";
     document.getElementById("valor").value = p.valor || "";
-    document.getElementById("custo").value = p.custo || "";
+    document.getElementById("custo").value = LV.custoPendente(p) ? "" : (p.custo ?? "");
     document.getElementById("pagamento").value = p.pagamento || "Pix";
     document.getElementById("pago").value = p.pago || "Não";
     pedidoEditando = p.docId;
@@ -906,6 +1327,29 @@ function centralizarCupom(texto, largura = 32) {
     return " ".repeat(espaco) + t;
 }
 
+function formatarDinheiroCupom(valor) {
+    return Number(valor || 0).toLocaleString("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
+function alinharCupom(esquerda, direita, largura = 32) {
+    const dir = String(direita || "");
+    const limiteEsquerda = Math.max(1, largura - dir.length - 1);
+    const esq = String(esquerda || "").slice(0, limiteEsquerda);
+    return esq + " ".repeat(Math.max(1, largura - esq.length - dir.length)) + dir;
+}
+
+function linhaProdutoCompacta(nome, quantidade, valorUnitario, largura = 32) {
+    const direita = `R$ ${formatarDinheiroCupom(valorUnitario)}`;
+    const sufixo = ` ${quantidade || 0}un`;
+    const limiteNome = Math.max(1, largura - direita.length - sufixo.length - 1);
+    const texto = String(nome || "Produto");
+    const nomeCurto = texto.length > limiteNome && limiteNome > 1 ? texto.slice(0, limiteNome - 1) + "…" : texto.slice(0, limiteNome);
+    return alinharCupom(nomeCurto + sufixo, direita, largura);
+}
+
 function montarTextoCupom(listaPedidos) {
     const pedidosLista = Array.isArray(listaPedidos) ? listaPedidos : [listaPedidos];
     const primeiro = pedidosLista[0];
@@ -922,14 +1366,8 @@ function montarTextoCupom(listaPedidos) {
         const pago = valorPagoPedido(p);
         totalGeral += total;
         pagoGeral += pago;
-        const valorUnit = Number(p.valor || 0).toFixed(2);
-        const totalItem = total.toFixed(2);
-        const nomeProduto = String(p.produto || "Produto").slice(0, 28);
         const qtd = p.qtd || 0;
-
-        // Só o essencial: produto + qtd + valor (sem data de cada pedido)
-        linhasItens += `${nomeProduto}\n`;
-        linhasItens += `${qtd} un x R$ ${valorUnit}  = R$ ${totalItem}\n`;
+        linhasItens += linhaProdutoCompacta(p.produto, qtd, p.valor) + "\n";
     });
 
     const saldoGeral = Math.max(0, totalGeral - pagoGeral);
@@ -946,12 +1384,12 @@ function montarTextoCupom(listaPedidos) {
     texto += `Cliente: ${primeiro.cliente || "-"}\n`;
     if (primeiro.telefone) texto += `Tel: ${primeiro.telefone}\n`;
     texto += `--------------------------------\n`;
-    texto += `ITENS\n`;
+    texto += `${alinharCupom("PRODUTO / QTD", "VALOR UNIT.")}\n`;
     texto += linhasItens;
     texto += `--------------------------------\n`;
-    texto += `TOTAL           R$ ${totalGeral.toFixed(2)}\n`;
-    texto += `JA PAGO         R$ ${pagoGeral.toFixed(2)}\n`;
-    texto += `SALDO           R$ ${saldoGeral.toFixed(2)}\n`;
+    texto += `${alinharCupom("TOTAL", `R$ ${formatarDinheiroCupom(totalGeral)}`)}\n`;
+    texto += `${alinharCupom("JA PAGO", `R$ ${formatarDinheiroCupom(pagoGeral)}`)}\n`;
+    texto += `${alinharCupom("SALDO", `R$ ${formatarDinheiroCupom(saldoGeral)}`)}\n`;
     texto += `--------------------------------\n`;
     texto += `Pagamento: ${forma}\n`;
     texto += `Status: ${situacao}\n`;
@@ -1003,6 +1441,132 @@ function entregaProxima(p) {
     return dataEnt >= hoje && dataEnt <= limite;
 }
 
+function dataReferenciaStatusProducao(pedido) {
+    const historico = Array.isArray(pedido.historicoStatus) ? pedido.historicoStatus : [];
+    const ultimoEvento = historico.length ? historico[historico.length - 1]?.em : null;
+    const candidatos = [pedido.statusAtualizadoEm, ultimoEvento, pedido.criadoEm];
+    for (const valor of candidatos) {
+        const data = dataHistoricoStatus(valor);
+        if (data) return data;
+    }
+    return parseDataLocal(pedido.data);
+}
+
+function horasNoStatusProducao(pedido) {
+    const inicio = dataReferenciaStatusProducao(pedido);
+    return inicio ? Math.max(0, (Date.now() - inicio.getTime()) / 3600000) : 0;
+}
+
+function atualizarPainelDiarioProducao() {
+    const ativos = pedidos.filter(pedido => (pedido.status || "Aguardando") !== "Entregue");
+    const aguardando = ativos.filter(pedido => (pedido.status || "Aguardando") === "Aguardando");
+    const imprimindo = ativos.filter(pedido => pedido.status === "Imprimindo");
+    const imprimindoLongo = imprimindo.filter(pedido => horasNoStatusProducao(pedido) >= 24);
+    const prontos = ativos.filter(pedido => pedido.status === "Pronto");
+    const atrasados = ativos.filter(entregaAtrasada);
+    const proximos = ativos.filter(entregaProxima);
+
+    document.getElementById("dashAtivos").innerText = ativos.length;
+    document.getElementById("dashAguardando").innerText = aguardando.length;
+    document.getElementById("dashImprimindo").innerText = imprimindo.length;
+    document.getElementById("dashImprimindoLongo").innerText = imprimindoLongo.length;
+    document.getElementById("dashPronto").innerText = prontos.length;
+    document.getElementById("dashAtrasados").innerText = atrasados.length;
+    document.getElementById("dashProximos").innerText = proximos.length;
+    document.getElementById("dataPainelProducao").innerText = new Date().toLocaleDateString("pt-BR", {
+        weekday: "long", day: "2-digit", month: "long", year: "numeric"
+    });
+
+    const atencoes = ativos.map(pedido => {
+        const status = pedido.status || "Aguardando";
+        const motivos = [];
+        let prioridade = 9;
+        if (entregaAtrasada(pedido)) { motivos.push(`entrega atrasada desde ${formatarData(pedido.dataEntrega)}`); prioridade = 1; }
+        if (status === "Imprimindo" && horasNoStatusProducao(pedido) >= 24) {
+            motivos.push(`imprimindo há ${duracaoStatus(horasNoStatusProducao(pedido) * 3600000)}`); prioridade = Math.min(prioridade, 2);
+        }
+        if (entregaProxima(pedido)) { motivos.push(`entrega prevista para ${formatarData(pedido.dataEntrega)}`); prioridade = Math.min(prioridade, 3); }
+        if (status === "Aguardando") { motivos.push("produção ainda não iniciada"); prioridade = Math.min(prioridade, 4); }
+        if (status === "Pronto") { motivos.push("pronto aguardando entrega ou retirada"); prioridade = Math.min(prioridade, 5); }
+        return motivos.length ? { pedido, motivos, prioridade } : null;
+    }).filter(Boolean).sort((a, b) => a.prioridade - b.prioridade
+        || String(a.pedido.dataEntrega || "9999-99-99").localeCompare(String(b.pedido.dataEntrega || "9999-99-99")));
+
+    const lista = document.getElementById("listaAtencoesProducao");
+    if (!atencoes.length) {
+        lista.innerHTML = '<p class="atencoes-producao-vazio">Nenhuma atenção urgente na produção hoje.</p>';
+        return;
+    }
+    const limite = 10;
+    lista.innerHTML = atencoes.slice(0, limite).map(({ pedido, motivos, prioridade }) => `
+        <article class="atencao-producao-item ${prioridade === 1 ? "atencao-urgente" : pedido.status === "Pronto" ? "atencao-pronto" : ""}">
+            <div><strong>${escaparHTML(pedido.cliente || "Cliente")} · ${escaparHTML(pedido.produto || "Produto")}</strong>
+            <span>${escaparHTML(motivos.join(" · "))}</span></div>
+            <button type="button" onclick="localizarPedidoProducao('${pedido.docId}')">Localizar na fila</button>
+        </article>`).join("") + (atencoes.length > limite
+            ? `<p class="atencoes-producao-vazio">Mais ${atencoes.length - limite} pedido(s) precisam de atenção. Use a busca para conferir.</p>` : "");
+}
+
+function localizarPedidoProducao(pedidoId) {
+    document.getElementById("buscaClienteOperacao").value = "";
+    document.getElementById("filtroMesOperacao").value = "";
+    render();
+    requestAnimationFrame(() => {
+        const check = [...document.querySelectorAll(".selecionado")].find(item => item.dataset.id === pedidoId);
+        const card = check?.closest(".pedido-producao");
+        if (!card) return;
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+        card.classList.remove("pedido-localizado");
+        void card.offsetWidth;
+        card.classList.add("pedido-localizado");
+    });
+}
+
+function prioridadeAgendaValor(prioridade) { return prioridade === "urgente" ? 0 : prioridade === "alta" ? 1 : 2; }
+
+function renderAgendaProducao() {
+    const campoData = document.getElementById("dataAgendaProducao");
+    if (!campoData.value) campoData.value = new Date().toISOString().slice(0, 10);
+    const dia = campoData.value;
+    const ativos = pedidos.filter(p => (p.status || "Aguardando") !== "Entregue");
+    const planejados = ativos.filter(p => p.dataProducao === dia).sort((a, b) =>
+        prioridadeAgendaValor(a.prioridadeProducao) - prioridadeAgendaValor(b.prioridadeProducao)
+        || String(a.cliente || "").localeCompare(String(b.cliente || ""), "pt-BR"));
+    const entregas = ativos.filter(p => p.dataEntrega === dia).length;
+    const horas = planejados.reduce((total, p) => total + Math.max(0, Number(p.tempoImpressaoPrevisto || 0)), 0);
+    document.getElementById("agendaQuantidade").textContent = planejados.length;
+    document.getElementById("agendaHoras").textContent = `${horas.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}h`;
+    document.getElementById("agendaEntregas").textContent = entregas;
+    const lista = document.getElementById("listaAgendaProducao");
+    const inicio = new Date(dia + "T12:00:00"); const fim = new Date(inicio); fim.setDate(fim.getDate() + 7);
+    const proximas = ativos.filter(p => p.dataEntrega && new Date(p.dataEntrega + "T12:00:00") >= inicio && new Date(p.dataEntrega + "T12:00:00") <= fim)
+        .sort((a,b) => String(a.dataEntrega).localeCompare(String(b.dataEntrega)));
+    document.getElementById("proximasEntregasAgenda").innerHTML = `<h5>Próximas entregas</h5>${proximas.length ? proximas.map(p => `<p><strong>${formatarData(p.dataEntrega)}</strong> · ${escaparHTML(p.cliente)} · ${escaparHTML(p.produto)}</p>`).join("") : "<p>Nenhuma entrega prevista nos sete dias seguintes.</p>"}`;
+    if (!planejados.length) { lista.innerHTML = '<p class="agenda-producao-vazia">Nenhum pedido planejado para este dia. Edite um pedido para incluí-lo na agenda.</p>'; return; }
+    lista.innerHTML = planejados.map(p => `
+        <article class="agenda-producao-item prioridade-${escaparHTML(p.prioridadeProducao || "normal")}">
+            <div><strong>${escaparHTML(p.cliente || "Cliente")} · ${escaparHTML(p.produto || "Produto")}</strong>
+            <span>${p.qtd || 0} un. · ${Number(p.tempoImpressaoPrevisto || 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}h · ${escaparHTML(p.impressoraProducao || "Impressora não definida")}</span></div>
+            <select aria-label="Prioridade" onchange="alterarPrioridadeProducao('${p.docId}', this.value)">
+                <option value="normal" ${p.prioridadeProducao === "normal" || !p.prioridadeProducao ? "selected" : ""}>Normal</option>
+                <option value="alta" ${p.prioridadeProducao === "alta" ? "selected" : ""}>Alta</option>
+                <option value="urgente" ${p.prioridadeProducao === "urgente" ? "selected" : ""}>Urgente</option>
+            </select><button type="button" onclick="localizarPedidoProducao('${p.docId}')">Localizar</button>
+        </article>`).join("");
+}
+
+async function alterarPrioridadeProducao(pedidoId, prioridade) {
+    const user = auth.currentUser;
+    if (!user || !["normal", "alta", "urgente"].includes(prioridade)) return;
+    const ref = db.collection("pedidos").doc(pedidoId);
+    await db.runTransaction(async tx => {
+        const doc = await tx.get(ref);
+        if (!doc.exists || doc.data().usuario !== user.uid) throw new Error("Pedido não encontrado.");
+        tx.update(ref, { prioridadeProducao: prioridade, planejamentoAtualizadoEm: new Date(), planejamentoAlteradoPor: user.uid });
+    });
+    await carregarPedidos();
+}
+
 function htmlDataEntrega(p) {
     if (!p.dataEntrega) return "<span style='color:#999'>-</span>";
     const dataFmt = formatarData(p.dataEntrega);
@@ -1026,8 +1590,186 @@ function pagamentoVencido(p) {
     const dataPag = new Date(dataRef);
     return dataPag < hoje;
 }
+
+function dataHistoricoStatus(valor) {
+    if (!valor) return null;
+    if (valor.toDate) return valor.toDate();
+    const data = valor instanceof Date ? valor : new Date(valor);
+    return Number.isNaN(data.getTime()) ? null : data;
+}
+
+function duracaoStatus(ms) {
+    if (!Number.isFinite(ms) || ms < 0) return "";
+    const minutos = Math.floor(ms / 60000);
+    if (minutos < 60) return `${Math.max(1, minutos)} min`;
+    const horas = Math.floor(minutos / 60);
+    const minutosRestantes = minutos % 60;
+    if (horas < 24) return `${horas}h${minutosRestantes ? ` ${minutosRestantes}min` : ""}`;
+    const dias = Math.floor(horas / 24);
+    const horasRestantes = horas % 24;
+    return `${dias}d${horasRestantes ? ` ${horasRestantes}h` : ""}`;
+}
+
+function htmlHistoricoStatus(pedido) {
+    const historico = Array.isArray(pedido.historicoStatus) ? pedido.historicoStatus : [];
+    if (!historico.length) return '<div class="historico-status"><strong>Histórico da produção</strong><p>O histórico começará na próxima alteração de status.</p></div>';
+    const eventos = historico.map(item => ({ ...item, data: dataHistoricoStatus(item.em) })).filter(item => item.data);
+    if (!eventos.length) return '';
+    const linhas = eventos.map((evento, indice) => {
+        const proximo = eventos[indice + 1]?.data;
+        const fim = proximo || (evento.status === "Entregue" ? null : new Date());
+        const permanencia = fim ? duracaoStatus(fim - evento.data) : "Finalizado";
+        return `<li><span class="historico-status-ponto status-${normalizarTexto(evento.status)}"></span><div><strong>${escaparHTML(evento.status || "Status")}</strong><small>${evento.data.toLocaleString("pt-BR")}${permanencia ? ` · ${escaparHTML(permanencia)}` : ""}</small></div></li>`;
+    }).join("");
+    return `<div class="historico-status"><strong>Histórico da produção</strong><ol>${linhas}</ol></div>`;
+}
+
+function htmlHistoricoAlteracoes(pedido) {
+    const historico = Array.isArray(pedido.historicoAlteracoes) ? pedido.historicoAlteracoes : [];
+    const linhas = historico.slice().reverse().map(item => {
+        const data = dataHistoricoStatus(item.em);
+        return `<li><span class="historico-status-ponto"></span><div><strong>${escaparHTML(item.acao || "Alteração")}</strong><small>${data ? data.toLocaleString("pt-BR") : "Data não informada"} · por ${escaparHTML(item.por || "usuário")}</small></div></li>`;
+    }).join("");
+    return linhas ? `<div class="historico-status"><strong>Histórico de alterações</strong><ol>${linhas}</ol></div>` : "";
+}
+
+function htmlParcelamento(pedido) {
+    const saldo = saldoPedido(pedido);
+    const parcelamento = pedido.parcelamento;
+    if (!parcelamento?.parcelas?.length) {
+        return "";
+    }
+    const hoje = new Date().toISOString().slice(0, 10);
+    const linhas = parcelamento.parcelas.map(parcela => {
+        const vencida = !parcela.pago && parcela.vencimento < hoje;
+        const classe = parcela.pago ? "parcela-paga" : vencida ? "parcela-vencida" : "parcela-aberta";
+        const situacao = parcela.pago
+            ? `Paga em ${formatarData(parcela.dataPagamento || "")}`
+            : vencida ? "Vencida" : "Em aberto";
+        const acao = parcela.pago
+            ? `<div class="acoes-parcela"><button onclick="enviarReciboParcela('${pedido.docId}', '${parcela.id}')">Enviar recibo</button></div>`
+            : `<div class="acoes-parcela"><button onclick="enviarCobrancaParcela('${pedido.docId}', '${parcela.id}')">Enviar cobrança</button><button onclick="abrirRegistroParcela('${pedido.docId}', '${parcela.id}')">Registrar pagamento</button></div>`;
+        return `<li class="${classe}"><div><strong>${parcela.numero}/${parcelamento.quantidade} · R$ ${Number(parcela.valor || 0).toFixed(2)}</strong><small>Vencimento: ${formatarData(parcela.vencimento)} · ${situacao}</small></div>${acao}</li>`;
+    }).join("");
+    const podeRefazer = !parcelamento.parcelas.some(parcela => parcela.pago)
+        ? `<button onclick="abrirParcelamento('${pedido.docId}')">Refazer parcelamento</button>` : "";
+    return `<div class="parcelamento-pedido"><strong>Parcelamento</strong><ol>${linhas}</ol>${podeRefazer}</div>`;
+}
+
+function htmlParcelamentoCliente(grupo) {
+    const pedidosGrupo = grupo.pedidos?.length ? pedidosAgrupadosDoCliente(grupo.pedidos[0].docId) : [];
+    const grupoId = pedidosGrupo.map(pedido => pedido.parcelamentoGrupoId).find(Boolean) || "";
+    const parcelamento = grupoId ? parcelamentosClientes.find(item => item.docId === grupoId) : null;
+    if (parcelamento?.parcelas?.length) {
+        const hoje = new Date().toISOString().slice(0, 10);
+        const linhas = parcelamento.parcelas.map(parcela => {
+            const vencida = !parcela.pago && parcela.vencimento < hoje;
+            const classe = parcela.pago ? "parcela-paga" : vencida ? "parcela-vencida" : "parcela-aberta";
+            const situacao = parcela.pago ? `Paga em ${formatarData(parcela.dataPagamento || "")}` : vencida ? "Vencida" : "Em aberto";
+            const acao = parcela.pago
+                ? `<div class="acoes-parcela"><button onclick="enviarReciboParcelaCliente('${grupoId}', '${parcela.id}')">Enviar recibo</button></div>`
+                : `<div class="acoes-parcela"><button onclick="enviarCobrancaParcelaCliente('${grupoId}', '${parcela.id}')">Enviar cobrança</button><button onclick="abrirRegistroParcelaCliente('${grupoId}', '${parcela.id}')">Registrar pagamento</button></div>`;
+            return `<li class="${classe}"><div><strong>${parcela.numero}/${parcelamento.quantidade} · R$ ${Number(parcela.valor || 0).toFixed(2)}</strong><small>Vencimento: ${formatarData(parcela.vencimento)} · ${situacao}</small></div>${acao}</li>`;
+        }).join("");
+        const podeRefazer = !parcelamento.parcelas.some(parcela => parcela.pago)
+            ? `<button onclick="abrirParcelamentoCliente('${pedidosGrupo[0]?.docId || ""}', '${grupoId}')">Refazer parcelamento</button>` : "";
+        return `<div class="parcelamento-pedido parcelamento-cliente"><strong>Parcelamento conjunto</strong><p>${parcelamento.pedidoIds?.length || pedidosGrupo.length} pedidos · R$ ${Number(parcelamento.valorFinanciado || 0).toFixed(2)}</p><ol>${linhas}</ol>${podeRefazer}</div>`;
+    }
+    const elegiveis = pedidosGrupo.filter(pedido => saldoPedido(pedido) > 0 && !pedido.parcelamentoGrupoId && !pedido.parcelamento?.parcelas?.length);
+    const saldo = elegiveis.reduce((total, pedido) => total + saldoPedido(pedido), 0);
+    const totalPedidos = elegiveis.reduce((total, pedido) => total + Number(pedido.total || 0), 0);
+    if (totalPedidos < 100) return "";
+    return `<div class="parcelamento-pedido parcelamento-cliente"><strong>Pagamento parcelado do cliente</strong><p>${elegiveis.length} ${elegiveis.length === 1 ? "pedido pendente" : "pedidos pendentes"} · Saldo conjunto: R$ ${saldo.toFixed(2)}</p><button onclick="abrirParcelamentoCliente('${elegiveis[0].docId}')">Criar parcelamento conjunto</button></div>`;
+}
+
+function textoCobrancaParcela(cliente, parcela, quantidade, itens, formaPagamento) {
+    const valor = Number(parcela.valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const vencimento = formatarData(parcela.vencimento || "");
+    return `Olá, ${cliente || "cliente"}!\n\nSegue a cobrança da parcela ${parcela.numero}/${quantidade} referente ao seu pedido na LV Maker 3D.\n\n${itens}\n\nValor da parcela: R$ ${valor}\nVencimento: ${vencimento}\nForma de pagamento: ${formaPagamento || "a combinar"}\n\nDepois do pagamento, pode me enviar o comprovante por aqui. Qualquer dúvida estou à disposição.`;
+}
+
+function textoReciboParcela(cliente, parcela, quantidade, pedidosGrupo, valorTotal) {
+    const largura = 40;
+    const itens = pedidosGrupo.map(pedido =>
+        linhaProdutoCompacta(pedido.produto, pedido.qtd || 1, pedido.valor, largura)
+    ).join("\n");
+    const dataPagamento = formatarData(parcela.dataPagamento || "") || new Date().toLocaleDateString("pt-BR");
+    const forma = parcela.forma || pedidosGrupo[0]?.pagamento || "Não informada";
+    let cupom = "";
+    cupom += `${centralizarCupom("LV MAKER 3D", largura)}\n`;
+    cupom += `${centralizarCupom("RECIBO DE PAGAMENTO", largura)}\n`;
+    cupom += `${"-".repeat(largura)}\n`;
+    cupom += `Cliente: ${cliente || "-"}\n`;
+    cupom += `Pagamento: ${dataPagamento}\n`;
+    cupom += `${"-".repeat(largura)}\n`;
+    cupom += `${alinharCupom("PRODUTO / QTD", "VALOR UNIT.", largura)}\n`;
+    cupom += `${itens}\n`;
+    cupom += `${"-".repeat(largura)}\n`;
+    cupom += `${alinharCupom("TOTAL DO PEDIDO", `R$ ${formatarDinheiroCupom(valorTotal)}`, largura)}\n`;
+    cupom += `${alinharCupom(`PARCELA ${parcela.numero}/${quantidade}`, `R$ ${formatarDinheiroCupom(parcela.valor)}`, largura)}\n`;
+    cupom += `${"-".repeat(largura)}\n`;
+    cupom += `Forma: ${forma}\n`;
+    cupom += `Status: PAGO\n`;
+    cupom += `${"-".repeat(largura)}\n`;
+    cupom += centralizarCupom("Pagamento recebido. Obrigado!", largura);
+    return `Olá, ${cliente || "cliente"}!\n\nSegue o recibo do pagamento da parcela ${parcela.numero}/${quantidade}:\n\n\`\`\`\n${cupom}\n\`\`\``;
+}
+
+function abrirCobrancaWhatsApp(telefone, mensagem) {
+    const numero = normalizarTelefoneWhatsApp(telefone);
+    if (!telefone || numero.replace(/\D/g, "").length < 12) {
+        alert("Este cliente não possui um WhatsApp válido cadastrado.");
+        return;
+    }
+    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`, "_blank");
+}
+
+function enviarCobrancaParcela(pedidoId, parcelaId) {
+    const pedido = pedidos.find(item => item.docId === pedidoId);
+    const parcela = pedido?.parcelamento?.parcelas?.find(item => item.id === parcelaId);
+    if (!pedido || !parcela || parcela.pago) return;
+    const itens = "```\n" + linhaProdutoCompacta(pedido.produto, pedido.qtd || 1, pedido.valor, 40) + "\n```";
+    abrirCobrancaWhatsApp(pedido.telefone, textoCobrancaParcela(pedido.cliente, parcela,
+        pedido.parcelamento.quantidade, itens, pedido.pagamento));
+}
+
+function enviarCobrancaParcelaCliente(grupoId, parcelaId) {
+    const grupo = parcelamentosClientes.find(item => item.docId === grupoId);
+    const parcela = grupo?.parcelas?.find(item => item.id === parcelaId);
+    if (!grupo || !parcela || parcela.pago) return;
+    const pedidosGrupo = (grupo.pedidoIds || []).map(id => pedidos.find(pedido => pedido.docId === id)).filter(Boolean);
+    if (!pedidosGrupo.length) { alert("Os pedidos deste parcelamento não foram encontrados."); return; }
+    const itens = "Itens do pedido:\n```\n" + pedidosGrupo.map(pedido =>
+        linhaProdutoCompacta(pedido.produto, pedido.qtd || 1, pedido.valor, 40)).join("\n") + "\n```";
+    const primeiro = pedidosGrupo[0];
+    abrirCobrancaWhatsApp(grupo.telefone || primeiro.telefone, textoCobrancaParcela(grupo.cliente || primeiro.cliente,
+        parcela, grupo.quantidade, itens, primeiro.pagamento));
+}
+
+function enviarReciboParcela(pedidoId, parcelaId) {
+    const pedido = pedidos.find(item => item.docId === pedidoId);
+    const parcela = pedido?.parcelamento?.parcelas?.find(item => item.id === parcelaId);
+    if (!pedido || !parcela?.pago) return;
+    abrirCobrancaWhatsApp(pedido.telefone, textoReciboParcela(
+        pedido.cliente, parcela, pedido.parcelamento.quantidade, [pedido], Number(pedido.total || 0)
+    ));
+}
+
+function enviarReciboParcelaCliente(grupoId, parcelaId) {
+    const grupo = parcelamentosClientes.find(item => item.docId === grupoId);
+    const parcela = grupo?.parcelas?.find(item => item.id === parcelaId);
+    if (!grupo || !parcela?.pago) return;
+    const pedidosGrupo = (grupo.pedidoIds || []).map(id => pedidos.find(pedido => pedido.docId === id)).filter(Boolean);
+    if (!pedidosGrupo.length) { alert("Os pedidos deste parcelamento não foram encontrados."); return; }
+    const primeiro = pedidosGrupo[0];
+    const valorTotal = pedidosGrupo.reduce((total, pedido) => total + Number(pedido.total || 0), 0);
+    abrirCobrancaWhatsApp(grupo.telefone || primeiro.telefone, textoReciboParcela(
+        grupo.cliente || primeiro.cliente, parcela, grupo.quantidade, pedidosGrupo, valorTotal
+    ));
+}
  
 function render() {
+    renderLixeiraPedidos();
     const mesSelecionado = document.getElementById(emProducao ? "filtroMesOperacao" : "filtroMes").value;
     const busca = document.getElementById(emProducao ? "buscaClienteOperacao" : "buscaCliente").value.toLowerCase();
 
@@ -1044,7 +1786,7 @@ function render() {
             tr.innerHTML = `
                 <td>${formatarData(p.data)}</td>
                 <td>${escaparHTML(p.cliente || "-")}</td>
-                <td>${escaparHTML(p.produto || "-")}</td>
+                <td>${escaparHTML(p.produto || "-")}${detalhesEntregaOnline(p)}</td>
                 <td>${p.qtd || 0}</td>
                 <td>R$ ${Number(p.valor || 0).toFixed(2)}</td>
                 <td>R$ ${Number(p.total || 0).toFixed(2)}</td>
@@ -1056,98 +1798,129 @@ function render() {
         return;
     }
 
-    const tabela = document.getElementById("tabelaOperacao");
-    tabela.innerHTML = "";
+    atualizarPainelDiarioProducao();
+    renderAgendaProducao();
+    const fila = document.getElementById("filaProducao");
+    const filaEntregues = document.getElementById("filaEntregues");
+    fila.innerHTML = "";
+    filaEntregues.innerHTML = "";
     let totalMes = 0;
-    let contAguardando = 0;
-    let contImprimindo = 0;
-    let contPronto = 0;
-    let contEntregue = 0;
-    let contAtrasados = 0;
-    let contPendente = 0;
+    const gruposClientes = new Map();
  
     pedidos.forEach(p => {
         if (busca && !(p.cliente || "").toLowerCase().includes(busca)) return;
         if (mesSelecionado && obterMesPedido(p.data) !== mesSelecionado) return;
 
         const st = p.status || "Aguardando";
-        if (st === "Aguardando") contAguardando++;
-        else if (st === "Imprimindo") contImprimindo++;
-        else if (st === "Pronto") contPronto++;
-        else if (st === "Entregue") contEntregue++;
-        if (entregaAtrasada(p)) contAtrasados++;
-        if (saldoPedido(p) > 0) contPendente++;
- 
-        const tr = document.createElement("tr");
-        const vencido = pagamentoVencido(p);
-        const atrasada = entregaAtrasada(p);
- 
-        if (p.status === "Aguardando") tr.style.backgroundColor = "#ffab76";
-        else if (p.status === "Imprimindo") tr.style.backgroundColor = "#fff3cd";
-        else if (p.status === "Pronto") tr.style.backgroundColor = "#d6d6d6";
-        else if (p.status === "Entregue") tr.style.backgroundColor = "#c6efce";
- 
-        if (vencido || atrasada) {
-            tr.style.outline = "2px solid #e74c3c";
-            tr.style.outlineOffset = "-2px";
+        if (st === "Entregue") {
+            const itemEntregue = document.createElement("div");
+            itemEntregue.className = "pedido-entregue-revisao";
+            itemEntregue.dataset.busca = normalizarTexto(`${p.cliente || ""} ${p.produto || ""}`);
+            itemEntregue.dataset.mes = obterMesPedido(p.data);
+            itemEntregue.innerHTML = `<div><strong>${escaparHTML(p.cliente || "Cliente")}</strong><span>${escaparHTML(p.produto || "Produto")} · ${p.qtd || 0} un. · Pedido em ${formatarData(p.data)}</span></div><button onclick="alterarStatus('${p.docId}', 'Imprimindo')">Voltar para Imprimindo</button>`;
+            filaEntregues.appendChild(itemEntregue);
+            return;
         }
+        const telefoneGrupo = String(p.telefone || "").replace(/\D/g, "");
+        const chaveGrupo = `${normalizarTexto(p.cliente)}:${telefoneGrupo}`;
+        let grupo = gruposClientes.get(chaveGrupo);
+        if (!grupo) {
+            const elemento = document.createElement("section");
+            elemento.className = "grupo-pedidos-cliente";
+            elemento.innerHTML = `
+                <header class="grupo-pedidos-cliente-cabecalho">
+                    <button class="link-cliente" onclick="abrirFichaClientePorPedido('${p.docId}')">${escaparHTML(p.cliente || "Cliente")}</button>
+                    <div class="grupo-pedidos-cliente-resumo">
+                        <span></span>
+                        <label class="selecionar-grupo"><input type="checkbox" onchange="selecionarPedidosDoGrupo(this)"> Selecionar todos</label>
+                        <button type="button" onclick="enviarPedidosProntosDoGrupo(this)">📲 Avisar prontos</button>
+                        <button type="button" onclick="imprimirFichaProducaoGrupo(this)">Ficha de produção</button>
+                        <select class="pedido-status grupo-pedido-status" aria-label="Alterar status de todos os pedidos deste cliente"></select>
+                    </div>
+                </header>
+                <div class="grupo-pedidos-cliente-lista"></div>
+            `;
+            fila.appendChild(elemento);
+            grupo = { elemento, lista: elemento.querySelector(".grupo-pedidos-cliente-lista"), quantidade: 0, total: 0, pedidos: [], primeiroPedidoId: p.docId };
+            gruposClientes.set(chaveGrupo, grupo);
+        }
+        grupo.quantidade++;
+        grupo.total += Number(p.total || 0);
+        grupo.pedidos.push(p);
+        grupo.elemento.querySelector(".grupo-pedidos-cliente-resumo span").textContent =
+            `${grupo.quantidade} ${grupo.quantidade === 1 ? "pedido" : "pedidos"} · R$ ${grupo.total.toFixed(2)}`;
  
-        const badgeVencido = vencido
-            ? ` <span title="Pagamento vencido" style="color:#e74c3c;font-size:14px;">⚠️</span>`
-            : "";
- 
-        tr.innerHTML = `
-            <td><input type="checkbox" class="selecionado" data-id="${p.docId}"></td>
-            <td>${formatarData(p.data)}</td>
-            <td>${p.dataPagamento ? formatarData(p.dataPagamento) + badgeVencido : "-"}</td>
-            <td>${htmlDataEntrega(p)}</td>
-            <td>
-                <button class="link-cliente" onclick="abrirFichaClientePorPedido('${p.docId}')">
-                    ${escaparHTML(p.cliente || "-")}
-                </button>
-            </td>
-            <td>${escaparHTML(p.produto || "-")}</td>
-            <td>${p.qtd || 0}</td>
-            <td>${escaparHTML(p.status || "Aguardando")}</td>
-            <td>
-                ${situacaoPagamento(p)}<br>
-                <small>Pago: R$ ${valorPagoPedido(p).toFixed(2)}<br>Saldo: R$ ${saldoPedido(p).toFixed(2)}</small>
-            </td>
-            <td>
+        const card = document.createElement("article");
+        const atrasada = entregaAtrasada(p);
+        const classeStatus = normalizarTexto(st) || "aguardando";
+        card.className = `pedido-producao status-${classeStatus}${atrasada ? " pedido-alerta" : ""}`;
+        card.innerHTML = `
+            <div class="pedido-producao-topo">
+                <input type="checkbox" class="selecionado" data-id="${p.docId}" aria-label="Selecionar pedido de ${escaparHTML(p.cliente || "cliente")}">
+                <div class="pedido-producao-identificacao">
+                    <strong>${escaparHTML(p.produto || "-")}</strong>
+                    <small>${p.qtd || 0} un. · R$ ${Number(p.total || 0).toFixed(2)}</small>
+                </div>
+            </div>
+            <div class="pedido-producao-resumo">
+                <span><small>Pedido</small>${formatarData(p.data) || "-"}</span>
+                <span><small>Entrega</small>${htmlDataEntrega(p)}</span>
+            </div>
+            ${LV.custoPendente(p) ? '<p class="pedido-aviso">Custo a informar</p>' : ''}
+            ${atrasada ? '<p class="pedido-aviso">Entrega atrasada</p>' : ''}
+            ${detalhesEntregaOnline(p)}
+            <details class="pedido-producao-acoes">
+                <summary>Mais opções</summary>
+                ${htmlHistoricoStatus(p)}
+                ${htmlHistoricoAlteracoes(p)}
+                <div>
                 <button onclick="editarPedidoPorId('${p.docId}')">Editar</button>
-                <button onclick="gerarRecibo('${p.docId}')">Recibo</button>
-                <button onclick="excluir('${p.docId}')">Excluir</button>
-                <br><br>
-                <select onchange="alterarStatus('${p.docId}', this.value)">
-                    <option value="Aguardando" ${p.status === "Aguardando" ? "selected" : ""}>Aguardando</option>
-                    <option value="Imprimindo" ${p.status === "Imprimindo" ? "selected" : ""}>Imprimindo</option>
-                    <option value="Pronto" ${p.status === "Pronto" ? "selected" : ""}>Pronto</option>
-                    <option value="Entregue" ${p.status === "Entregue" ? "selected" : ""}>Entregue</option>
-                </select>
-                <button onclick="abrirRegistroPagamento('${p.docId}')">Registrar pagamento</button>
-                <br><br>
                 <select id="msg-${p.docId}">
                     <option value="confirmar">Confirmar pedido</option>
                     <option value="imprimindo">Começou a impressão</option>
                     <option value="pronto">Pedido pronto</option>
                     <option value="retirada">Pronto para retirada</option>
-                    <option value="cobranca">Cobrar pagamento</option>
                 </select>
                 <button onclick="enviarMensagemPedido('${p.docId}')">WhatsApp</button>
-            </td>
+                <button onclick="alterarStatus('${p.docId}', 'Entregue')">Marcar este item como entregue</button>
+                <button class="botao-perigo" onclick="excluir('${p.docId}')">Excluir</button>
+                </div>
+            </details>
         `;
- 
-        tabela.appendChild(tr);
+        grupo.lista.appendChild(card);
         totalMes += Number(p.total || 0);
     });
+
+    gruposClientes.forEach(grupo => {
+        const estados = new Set(grupo.pedidos.map(pedido => pedido.status || "Aguardando"));
+        const statusGrupo = estados.size === 1 ? [...estados][0] : "";
+        const select = grupo.elemento.querySelector(".grupo-pedido-status");
+        select.className = `pedido-status grupo-pedido-status status-${normalizarTexto(statusGrupo || "misto")}`;
+        select.setAttribute("onchange", `alterarStatusCliente('${grupo.primeiroPedidoId}', this.value)`);
+        select.innerHTML = `${statusGrupo ? "" : '<option value="" selected disabled>Status misto</option>'}
+            <option value="Aguardando" ${statusGrupo === "Aguardando" ? "selected" : ""}>Aguardando</option>
+            <option value="Imprimindo" ${statusGrupo === "Imprimindo" ? "selected" : ""}>Imprimindo</option>
+            <option value="Pronto" ${statusGrupo === "Pronto" ? "selected" : ""}>Pronto</option>`;
+    });
+
+    if (!fila.children.length) fila.innerHTML = '<p class="fila-producao-vazia">Nenhum pedido encontrado neste filtro.</p>';
+    if (!filaEntregues.children.length) filaEntregues.innerHTML = '<p style="color:#777">Nenhum pedido entregue neste filtro.</p>';
+    filtrarPedidosEntregues();
  
     document.getElementById("totalMesOperacao").innerText = totalMes.toFixed(2);
-    document.getElementById("dashAguardando").innerText = contAguardando;
-    document.getElementById("dashImprimindo").innerText = contImprimindo;
-    document.getElementById("dashPronto").innerText = contPronto;
-    document.getElementById("dashEntregue").innerText = contEntregue;
-    document.getElementById("dashAtrasados").innerText = contAtrasados;
-    document.getElementById("dashPendente").innerText = contPendente;
+}
+
+function imprimirFichaProducaoGrupo(botao) {
+    const ids = [...botao.closest(".grupo-pedidos-cliente").querySelectorAll(".selecionado")].map(c => c.dataset.id);
+    const itens = ids.map(id => pedidos.find(p => p.docId === id)).filter(Boolean);
+    if (!itens.length) return;
+    const cliente = itens[0].cliente || "Cliente";
+    const codigo = itens.map(p => String(p.pedidoId || p.docId).slice(-8)).join("-");
+    const linhas = itens.map(p => `<tr><td>${escaparHTML(p.produto || "Produto")}</td><td>${Number(p.qtd || 0)}</td><td>${escaparHTML(p.impressoraProducao || "-")}</td><td>${escaparHTML(p.observacao || p.observacoes || "-")}</td><td>${p.dataEntrega ? formatarData(p.dataEntrega) : "-"}</td></tr>`).join("");
+    const janela = window.open("", "_blank");
+    if (!janela) { alert("Permita a abertura da janela para imprimir a ficha."); return; }
+    janela.document.write(`<!doctype html><html lang="pt-br"><head><meta charset="utf-8"><title>Ficha de produção</title><style>body{font:16px Arial;max-width:900px;margin:28px auto;color:#14283e}header{display:flex;justify-content:space-between;gap:20px;border-bottom:3px solid #14283e}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:10px;border:1px solid #bbb;text-align:left}.codigo{font:700 20px monospace;padding:10px;background:#eee}@media print{button{display:none}}</style></head><body><header><div><h1>LV Maker 3D</h1><h2>${escaparHTML(cliente)}</h2></div><p class="codigo">${escaparHTML(codigo)}</p></header><table><thead><tr><th>Produto</th><th>Qtd.</th><th>Impressora</th><th>Observações</th><th>Prazo</th></tr></thead><tbody>${linhas}</tbody></table><p><button onclick="window.print()">Imprimir ficha</button></p></body></html>`);
+    janela.document.close();
 }
 
 function obterMesPedido(data) {
@@ -1159,7 +1932,7 @@ function obterMesPedido(data) {
  
 function gerarReciboSelecionado() {
     const selecionados = document.querySelectorAll(".selecionado:checked");
-    if (selecionados.length === 0) { alert("Selecione pelo menos um pedido."); return; }
+    if (selecionados.length === 0) { alert("Selecione pelo menos um pedido."); return false; }
  
     let pedidosSelecionados = [];
  
@@ -1169,17 +1942,22 @@ function gerarReciboSelecionado() {
     });
 
     const clientesDoRecibo = new Set(pedidosSelecionados.map(p => {
-        return p.clienteId || String(p.cliente || "").trim().toLowerCase();
+        return LV.chaveCliente(p);
     }));
     if (clientesDoRecibo.size > 1) {
         pedidoAtivo = null;
         alert("Selecione apenas pedidos da mesma cliente para gerar e enviar um único recibo.");
-        return;
+        return false;
     }
 
     const texto = montarTextoCupom(pedidosSelecionados);
     document.getElementById("recibo").innerHTML = `<pre class="cupom-fiscal">${escaparHTML(texto)}</pre>`;
     pedidoAtivo = pedidosSelecionados[0];
+    return true;
+}
+
+function enviarReciboSelecionado() {
+    if (gerarReciboSelecionado()) enviarWhatsApp();
 }
  
 function enviarWhatsApp() {
@@ -1187,7 +1965,7 @@ function enviarWhatsApp() {
     if (!pedidoAtivo.telefone) { alert("Pedido sem telefone cadastrado."); return; }
     const telefone = normalizarTelefoneWhatsApp(pedidoAtivo.telefone);
     const reciboTexto = document.getElementById("recibo").innerText.trim();
-    const mensagem = encodeURIComponent(reciboTexto);
+    const mensagem = encodeURIComponent("```\n" + reciboTexto + "\n```");
     window.open(`https://wa.me/${telefone}?text=${mensagem}`, "_blank");
 }
 
@@ -1218,6 +1996,51 @@ function enviarMensagemPedido(docId) {
     const mensagem = encodeURIComponent(montarMensagemPedido(pedido, tipo));
     window.open(`https://wa.me/${telefone}?text=${mensagem}`, "_blank");
 }
+
+function montarMensagemPedidosSelecionados(lista, tipo) {
+    const primeiro = lista[0];
+    const itens = lista.map(pedido => `• ${pedido.qtd || 0} un. — ${pedido.produto || "Produto"}`).join("\n");
+    const total = lista.reduce((soma, pedido) => soma + Number(pedido.total || 0), 0);
+    const saldo = lista.reduce((soma, pedido) => soma + saldoPedido(pedido), 0);
+    const itensCobranca = lista.map(pedido => linhaProdutoCompacta(pedido.produto, pedido.qtd || 0, pedido.valor, 40)).join("\n");
+    if (tipo === "imprimindo") return `Olá, ${primeiro.cliente}!\n\nPassando para avisar que começamos a impressão dos seus pedidos:\n\n${itens}\n\nTe aviso assim que tudo estiver pronto.`;
+    if (tipo === "pronto") return `Olá, ${primeiro.cliente}!\n\nSeus pedidos ficaram prontos:\n\n${itens}\n\nPode me chamar por aqui para combinarmos a retirada ou entrega.`;
+    if (tipo === "retirada") return `Olá, ${primeiro.cliente}!\n\nSeus pedidos já estão prontos para retirada:\n\n${itens}\n\nQuando puder, me avise para combinarmos o melhor horário.`;
+    if (tipo === "cobranca") return `Olá, ${primeiro.cliente}!\n\nPassando para lembrar do pagamento dos seus pedidos na LV Maker 3D:\n\n\`\`\`\n${itensCobranca}\n${alinharCupom("TOTAL", `R$ ${formatarDinheiroCupom(total)}`, 40)}\n${alinharCupom("SALDO", `R$ ${formatarDinheiroCupom(saldo)}`, 40)}\n\`\`\`\n\nQualquer dúvida estou à disposição.`;
+    return `Olá, ${primeiro.cliente}!\n\nSeus pedidos foram confirmados na LV Maker 3D:\n\n${itens}\n\nTotal: R$ ${total.toFixed(2)}\n\nAssim que eu iniciar a impressão te aviso por aqui.`;
+}
+
+function selecionarPedidosDoGrupo(controle) {
+    const grupo = controle.closest(".grupo-pedidos-cliente");
+    if (!grupo) return;
+    grupo.querySelectorAll(".selecionado").forEach(check => { check.checked = controle.checked; });
+}
+
+function enviarPedidosProntosDoGrupo(botao) {
+    const grupo = botao.closest(".grupo-pedidos-cliente");
+    if (!grupo) return;
+    const lista = [...grupo.querySelectorAll(".selecionado:checked")]
+        .map(check => pedidos.find(pedido => pedido.docId === check.dataset.id)).filter(Boolean);
+    if (!lista.length) { alert("Selecione os pedidos desta cliente que ficaram prontos."); return; }
+    if (lista.some(pedido => pedido.status !== "Pronto")) { alert("Selecione apenas os pedidos que estão com o status Pronto."); return; }
+    const primeiro = lista[0];
+    if (!primeiro.telefone) { alert("Cliente sem telefone cadastrado."); return; }
+    abrirCobrancaWhatsApp(primeiro.telefone, montarMensagemPedidosSelecionados(lista, "pronto"));
+}
+
+function enviarMensagemSelecionados() {
+    const marcados = [...document.querySelectorAll(".selecionado:checked")];
+    const lista = marcados.map(check => pedidos.find(pedido => pedido.docId === check.dataset.id)).filter(Boolean);
+    if (!lista.length) { alert("Selecione pelo menos um pedido."); return; }
+    const clientes = new Set(lista.map(chaveAgrupamentoCliente));
+    if (clientes.size !== 1) { alert("Selecione apenas pedidos do mesmo cliente para enviar uma única mensagem."); return; }
+    const primeiro = lista[0];
+    if (!primeiro.telefone) { alert("Cliente sem telefone cadastrado."); return; }
+    const tipo = document.getElementById("msgSelecionados").value;
+    const telefone = normalizarTelefoneWhatsApp(primeiro.telefone);
+    const mensagem = encodeURIComponent(montarMensagemPedidosSelecionados(lista, tipo));
+    window.open(`https://wa.me/${telefone}?text=${mensagem}`, "_blank");
+}
  
 function enviarCobrancaSelecionados() {
     const selecionados = document.querySelectorAll(".selecionado:checked");
@@ -1237,10 +2060,10 @@ function enviarCobrancaSelecionados() {
     const primeiro = pedidosSelecionados[0];
     if (!primeiro.telefone) { alert("Cliente sem telefone cadastrado."); return; }
  
-    const telefone = primeiro.telefone.replace(/\D/g, "");
+    const telefone = normalizarTelefoneWhatsApp(primeiro.telefone);
     let linhasPedidos = "";
-    pedidosSelecionados.forEach((p, i) => {
-        linhasPedidos += `📦 Pedido ${i + 1}\nProduto: ${p.produto}\nQuantidade: ${p.qtd}\nTotal: R$ ${Number(p.total).toFixed(2)}\nJá pago: R$ ${valorPagoPedido(p).toFixed(2)}\nSaldo: R$ ${saldoPedido(p).toFixed(2)}\n\n`;
+    pedidosSelecionados.forEach((p) => {
+        linhasPedidos += linhaProdutoCompacta(p.produto, p.qtd || 0, p.valor, 40) + "\n";
     });
  
     const mensagem = encodeURIComponent(
@@ -1249,22 +2072,24 @@ function enviarCobrancaSelecionados() {
 Olá, ${primeiro.cliente}!
  
 Segue o resumo dos pedidos pendentes:
- 
-${linhasPedidos}💰 *Total Geral: R$ ${totalGeral.toFixed(2)}*
+
+\`\`\`
+${linhasPedidos}${alinharCupom("TOTAL PENDENTE", `R$ ${formatarDinheiroCupom(totalGeral)}`, 40)}
+\`\`\`
  
 Forma de pagamento: ${primeiro.pagamento}
  
 Qualquer dúvida estou à disposição 🙌`
     );
  
-    window.open(`https://wa.me/55${telefone}?text=${mensagem}`, "_blank");
+    window.open(`https://wa.me/${telefone}?text=${mensagem}`, "_blank");
 }
  
 function exportarCSV() {
     if (pedidos.length === 0) { alert("Nenhum pedido para exportar."); return; }
     let csv = "Data Pedido;Data Pagamento;Data Entrega;Cliente;Telefone;Produto;Quantidade;Valor Unitario;Total;Lucro;Pagamento;Status;Pago\n";
     pedidos.forEach(p => {
-        csv += `${p.data||""};${p.dataPagamento||""};${p.dataEntrega||""};${p.cliente||""};"'${p.telefone||""}";${p.produto||""};${p.qtd||0};${p.valor||0};${p.total||0};${p.lucro||0};${p.pagamento||""};${p.status||""};${p.pago||""}\n`;
+        csv += `${p.data||""};${p.dataPagamento||""};${p.dataEntrega||""};${p.cliente||""};"'${p.telefone||""}";${p.produto||""};${p.qtd||0};${p.valor||0};${p.total||0};${LV.custoPendente(p) ? "Custo a informar" : LV.lucro(p)};${p.pagamento||""};${p.status||""};${p.pago||""}\n`;
     });
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
@@ -1273,6 +2098,35 @@ function exportarCSV() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+}
+
+async function exportarBackupSeguranca(botao) {
+    const user = auth.currentUser;
+    if (!user) return;
+    if (botao) { botao.disabled = true; botao.textContent = "Preparando backup..."; }
+    let backup;
+    try {
+        const [clientesSnap, orcamentosSnap, despesasSnap, produtosSnap, categoriasSnap, configOrcamento, configCheckout] = await Promise.all([
+            db.collection("clientes").where("usuario", "==", user.uid).get(), db.collection("orcamentos").where("usuario", "==", user.uid).get(),
+            db.collection("despesas").where("usuario", "==", user.uid).get(), db.collection("produtos").get(), db.collection("categorias").get(),
+            db.collection("configuracoes").doc("orcamento").get(), db.collection("configuracoes").doc("checkout").get()
+        ]);
+        const lista = snap => snap.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
+        backup = { versao: 2, exportadoEm: new Date().toISOString(), usuario: user.uid,
+            pedidos: [...pedidos, ...pedidosExcluidos], pagamentos, parcelamentosClientes,
+            clientes: lista(clientesSnap), orcamentos: lista(orcamentosSnap), despesas: lista(despesasSnap),
+            produtos: lista(produtosSnap), categorias: lista(categoriasSnap), configuracoes: {
+                orcamento: configOrcamento.exists ? configOrcamento.data() : null,
+                checkout: configCheckout.exists ? configCheckout.data() : null
+            } };
+    } catch (erro) { alert("Não foi possível reunir todos os dados do backup. Atualize a página e tente novamente."); return; }
+    finally { if (botao) { botao.disabled = false; botao.textContent = "Exportar backup"; } }
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `lv-maker-backup-${new Date().toISOString().slice(0,10)}.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
  
 function buscarTelefoneCliente() {
@@ -1292,6 +2146,7 @@ function formatarData(data) {
     return data;
 }
 </script>
+<script src="push-notifications.js?v=66"></script>
  
 </body>
 </html>

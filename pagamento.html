@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Seu pagamento — LV Maker</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="card" style="max-width:540px;margin:32px auto;padding:24px">
+    <h1>Seu pedido na LV Maker</h1>
+    <p id="statusPagamento" role="status" aria-live="polite">Conferindo seu pagamento...</p>
+    <p id="codigoPedido"></p>
+    <button id="conferirPagamento" onclick="conferirPagamento()">Conferir novamente</button>
+    <p><a href="catalogo.html">Voltar à loja virtual</a></p>
+</main>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
+<script src="integracoes.js?v=66"></script>
+<script>
+firebase.initializeApp({ apiKey: 'AIzaSyASqz8XoAhyD6w-klOr4HXlj_4URkQlBU8', authDomain: 'lv-maker.firebaseapp.com',
+    projectId: 'lv-maker', storageBucket: 'lv-maker.firebasestorage.app', messagingSenderId: '216355482221', appId: '1:216355482221:web:5c3806b990538fa7dc6d64' });
+firebase.appCheck().activate(new firebase.appCheck.ReCaptchaEnterpriseProvider('6LcX5IItAAAAAMMojs5eGD6mDUWpnFozv-P_xmC_'), true);
+const params = new URLSearchParams(location.search);
+const dadosPagamento = { pedido: params.get('pedido') || params.get('order_nsu'), token: params.get('token'), slug: params.get('slug'), transaction: params.get('transaction_nsu') };
+// Remove identificadores da barra, mas permite reconferir após recarregar a página.
+try {
+    if (dadosPagamento.pedido && dadosPagamento.token) sessionStorage.setItem('lv_retorno_pagamento', JSON.stringify(dadosPagamento));
+    else Object.assign(dadosPagamento, JSON.parse(sessionStorage.getItem('lv_retorno_pagamento') || '{}'));
+} catch (_) { /* A consulta inicial ainda funciona sem armazenamento. */ }
+history.replaceState(null, '', 'pagamento.html');
+document.getElementById('codigoPedido').textContent = dadosPagamento.pedido ? 'Código do pedido: ' + dadosPagamento.pedido : '';
+let conferindo = false;
+async function conferirPagamento() {
+    if (conferindo) return;
+    const status = document.getElementById('statusPagamento');
+    const botao = document.getElementById('conferirPagamento');
+    if (!dadosPagamento.pedido || !dadosPagamento.token) { status.textContent = 'Abra esta página pelo retorno do checkout InfinitePay para consultar seu pedido.'; botao.hidden = true; return; }
+    if (!navigator.onLine) { status.textContent = 'Conecte-se à internet para confirmar o pagamento.'; return; }
+    conferindo = true; botao.disabled = true;
+    try {
+        const { data } = await LVIntegracoes.chamar('consultarPagamento', dadosPagamento);
+        status.textContent = data.pago ? data.estoquePendente ? 'Pagamento confirmado! A loja está conferindo a disponibilidade dos itens antes de preparar seu pedido.' : data.prazoProducaoDias === 0 ? 'Pagamento confirmado! Seu pedido está à pronta entrega e seguirá para preparação do envio ou retirada, sem aguardar produção.' : 'Pagamento confirmado! Seu pedido foi recebido pela LV Maker. Prazo de produção: 1 dia antes do envio ou retirada. Pedidos com itens prontos e sob demanda são enviados juntos.' : 'A confirmação ainda não chegou. Aguarde um pouco e confira novamente. Não é necessário pagar outra vez.';
+        if (data.pago) { botao.hidden = true; try { sessionStorage.removeItem('lv_checkout'); } catch (_) {} }
+    } catch (_) { status.textContent = 'Não foi possível conferir agora. Tente novamente ou informe o código do pedido à loja. Não faça outro pagamento.'; }
+    finally { conferindo = false; botao.disabled = false; }
+}
+conferirPagamento();
+</script>
+</body>
+</html>
